@@ -1,1 +1,28 @@
 
+
+setwd("~/Universidad/MaestriaMEcA/Intersemestral2/BigData/Taller3")
+
+train_individual <- readRDS("dataPS3/train_personas.Rds")
+
+str(train)
+summary(train)
+
+#Analisis de la variable de supercificie reemplazar los NAs por lo otra superficie
+
+#Sacar los polígonos de Chapinero y El Pobaldo
+#Sacar los metros cuadrados en descripción
+#Sacar la distancia a los business centers
+#Tratar los missing con los vecinos más cercanos, utilizar el promedio de la misma cuadra o utilizar la mediana
+#Utilizar bases externas para crear otras variables 
+#(i.e distancia a los bares o comercio, distancia a los parques, paraderos de bus, criminalidad, distancia a colegios)
+
+#------Data Cleaning---------------
+
+#------Dividir la muestra train dos submuestras-------------
+
+#------------Modelos Continuos-----------------
+
+#----------Modelo Lasso------------
+#----------Modelo XGboost-----------
+
+####OJO SI EL PRECIO ESTÁ MENOR EN 40 MILLONES O 10000 USD TENDREMOS PENALIZACIÓN #####
