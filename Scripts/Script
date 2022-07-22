@@ -51,8 +51,37 @@ test <- readRDS("dataPS3/test.Rds")
 
 str(train)
 summary(train)
+summary(test)
 
-#Hay tres variables con muchos NAs: Bathrooms, surface_total, surface_covered
+##Se analizan los Nas
+cantidad_na <- sapply(train, function(x) sum(is.na(x))) #Una función que me suma el número de NAs por variable
+cantidad_na <- data.frame(cantidad_na) #Lo convierto en Data Frame
+porcentaje_na <- cantidad_na/nrow(train) #Le saco el porcentaje de Missing values a cada variable
+
+# Porcentaje de observaciones faltantes. 
+porcentaje <- mean(porcentaje_na[,1]) #El 11.11% de las variables tiene NAs
+print(paste0("En promedio el ", round(porcentaje*100, 2), "% de las entradas están vacías"))
+
+##Ordenamos de mayor a menor
+porcentaje_na <- arrange(porcentaje_na, desc(cantidad_na))
+# Convertimos el nombre de la fila en columna
+porcentaje_na <- rownames_to_column(porcentaje_na, "variable")
+
+orden <- porcentaje_na$variable[length(porcentaje_na$variable):1] #Se vuelven caracteres
+porcentaje_na$variable <- factor(porcentaje_na$variable,
+                                 levels = orden) #Se utilizan como factores para poder graficar
+
+ggplot(porcentaje_na[1:nrow(porcentaje_na),], 
+       aes(y = variable, x = cantidad_na)) +
+  geom_bar(stat = "identity", fill = "darkslategray3") +
+  geom_text(aes(label = paste0(round(100*cantidad_na, 1), "%")),
+            colour = "white", position = "dodge", hjust = 1.3,
+            size = 2, fontface = "bold") +
+  theme_classic() +
+  labs(x = "Porcentaje de NAs", y = "Variables") +
+  scale_x_continuous(labels = scales::percent, limits = c(0, 1))
+
+#Hay cuatro variables con muchos NAs: rooms, bathrooms, surface_total, surface_covered
 
 #--------Combinar las bases-----------------
 #Vamos a unir las bases test y train para hacer más fácil la transformación
