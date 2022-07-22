@@ -148,6 +148,320 @@ df_sf <- df_sf %>%
   mutate_at(.vars = c("l3", "property_type"),
     .funs = factor)
 
+#------Sacar los metros cuadrados en descripción-------
+df_sf$surface_total[58] ## not surface_total
+
+df_sf$surface_covered[58] ## not surface_covered
+
+df_sf$description[58] ## explore description
+
+#Como se observa en la observación analizada, para algunas observaciones sí se encuentra
+#datos de la superficie cubierta pero no de la superficie total entonces se
+#reemplaza la variable de superficie total por el máximo valor entre las dos
+
+#Tenemos 88936 valores NAs de superficie total y 97371 na de superficie cubierta
+
+df_sf$surface_total <- ifelse(is.na(df_sf$surface_total), df$surface_covered, df$surface_total)
+
+##Ahora contamos con 79364 NAs
+
+
+##Ahora bien, la variable de descripción cuenta con datos de utilidad como los M2
+#por lo que se intentará extraer esta información con diferentes patrones 
+##Se vuelven todas a minúsculas para mayor facilidad de lectura de patrones
+df_sf$description <- tolower(df_sf$description)
+
+##Se definen diferentes patrones
+x = "[:space:]+[:digit:]+[:punct:]+[:digit:]+[:space:]+m2" ## pattern
+y = "[:space:]+[:digit:]+[:space:]+metros+[:space:]+cuadrados"
+z = "[:space:]+[:digit:]+[:space:]+metros"
+w = "[:space:]+[:digit:]+[:space:]+área"
+v = "[:space:]+[:digit:]+[:punct:]+[:digit:]+[:space:]+mt2"
+a = "[:space:]+[:digit:]+[:space:]+mt2"
+b = "[:space:]+[:digit:]+[:punct:]+[:digit:]+m2"
+c = "[:space:]+[:digit:]+m2"
+d = "[:space:]+[:digit:]+[:punct:]+[:digit:]+[:space:]+mts"
+e = "[:space:]+[:digit:]+[:space:]+mts"
+f = "[:space:]+[:digit:]+mts"
+g = "[:space:]+[:digit:]+[:space:]+m2"
+
+#Prueba con una observación:
+
+str_locate_all(string = df_sf$description[14] , pattern = y) ## detect pattern
+
+str_extract(string=df_sf$description[14] , pattern= y) ## extrac pattern
+
+## Definir una nueva variable
+df_sf = df_sf %>% 
+  mutate(new_surface = str_extract(string=df_sf$description , pattern= y))
+table(df_sf$new_surface)
+
+## another pattern
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= x),
+                              new_surface))
+table(df_sf$new_surface)
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= z),
+                              new_surface))
+table(df_sf$new_surface)
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= w),
+                              new_surface))
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= v),
+                              new_surface))
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= a),
+                              new_surface))
+
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= b),
+                              new_surface))
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= c),
+                              new_surface))
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= d),
+                              new_surface))
+
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= e),
+                              new_surface))
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= f),
+                              new_surface))
+
+df_sf = df_sf %>% 
+  mutate(new_surface = ifelse(is.na(new_surface)==T,
+                              str_extract(string=df_sf$description , pattern= g),
+                              new_surface))
+sum(is.na(df_sf$new_surface))
+
+##72575 NAs
+
+##Se hace lo mismo con pisos, estrato y parqueaderos
+##Pisos
+
+h = "[:space:]+[:digit:]+[:space:]+pisos" ## pattern
+i = "[:space:]+[:digit:]+[:space:]+piso" 
+j = "[:space:]+[:digit:]+pisos"
+
+
+df_sf = df_sf %>% 
+  mutate(pisos = str_extract(string=df_sf$description , pattern= h))
+         
+ df_sf = df_sf %>% 
+  mutate(pisos = ifelse(is.na(pisos)==T,
+                        str_extract(string=df_sf$description , pattern= i),
+                        pisos))
+
+df_sf = df_sf %>% 
+  mutate(pisos = ifelse(is.na(pisos)==T,
+                        str_extract(string=df_sf$description , pattern= j),
+                        pisos))
+
+sum(is.na(df_sf$pisos))
+##110970 NAs
+
+##Estrato
+
+k = "[:space:]+estrato+[:space:]+[:digit:]" ## pattern
+l = "[:space:]+estrato+[:digit:]"
+
+df_sf = df_sf %>% 
+  mutate(estrato = str_extract(string=df_sf$description , pattern= k))
+
+df_sf = df_sf %>% 
+  mutate(estrato = ifelse(is.na(estrato)==T,
+                          str_extract(string=df_sf$description , pattern= l),
+                          estrato))
+sum(is.na(df_sf$estrato))
+##109389 NAs
+
+##Parqueaderos
+
+m = "[:space:]+[:digit:]+[:space:]+parqueadero" ## pattern
+n = "[:space:]+[:digit:]+[:space:]+parqueaderos" 
+o = "[:space:]+[:digit:]+[:space:]+garaje"
+p = "[:space:]+[:digit:]+[:space:]+garajes"
+q = "[:space:]+[:digit:]+[:space:]+vehiculos"
+
+df_sf = df_sf %>% 
+  mutate(parqueaderos = str_extract(string=df_sf$description , pattern= m))
+
+df_sf = df_sf %>% 
+  mutate(parqueaderos = ifelse(is.na(parqueaderos)==T,
+                               str_extract(string=df_sf$description , pattern= n),
+                               parqueaderos))
+df_sf = df_sf %>% 
+  mutate(parqueaderos = ifelse(is.na(parqueaderos)==T,
+                               str_extract(string=df_sf$description , pattern= o),
+                               parqueaderos))
+df_sf = df_sf %>% 
+  mutate(parqueaderos = ifelse(is.na(parqueaderos)==T,
+                               str_extract(string=df_sf$description , pattern= p),
+                               parqueaderos))
+df_sf = df_sf %>% 
+  mutate(parqueaderos = ifelse(is.na(parqueaderos)==T,
+                               str_extract(string=df_sf$description , pattern= q),
+                               parqueaderos))
+sum(is.na(df_sf$parqueaderos))
+##97970 NAs
+
+cantidad_na <- sapply(df_sf,function(x) sum(is.na(x))) #Una función que me suma el número de NAs por variable
+cantidad_na <- data.frame(cantidad_na) #Lo convierto en Data Frame
+porcentaje_na <- cantidad_na/nrow(df_sf)
+
+porcentaje_na <- arrange(porcentaje_na, desc(cantidad_na))
+# Convertimos el nombre de la fila en columna
+porcentaje_na <- rownames_to_column(porcentaje_na, "variable")
+
+orden <- porcentaje_na$variable[length(porcentaje_na$variable):1] #Se vuelven caracteres
+porcentaje_na$variable <- factor(porcentaje_na$variable,
+                                 levels = orden) #Se utilizan como factores para poder graficar
+
+
+ggplot(porcentaje_na[1:nrow(porcentaje_na),], 
+       aes(y = variable, x = cantidad_na)) +
+  geom_bar(stat = "identity", fill = "darkslategray3") +
+  geom_text(aes(label = paste0(round(100*cantidad_na, 1), "%")),
+            colour = "white", position = "dodge", hjust = 1.3,
+            size = 2, fontface = "bold") +
+  theme_classic() +
+  labs(x = "Porcentaje de NAs", y = "Variables") +
+  scale_x_continuous(labels = scales::percent, limits = c(0, 1))
+
+##De las creadas la que tiene menos Nas es la de la superficie y los parqueaderos entonces se extraeran los 
+##números de estas variables-
+
+# prepare regular expression
+regexp <- "[[:digit:]]"
+
+# process string
+df_sf = df_sf %>% 
+  mutate(parqueaderos = str_extract(df_sf$parqueaderos, regexp))
+
+
+regexp <- "[:digit:]+[:punct:]+[:digit:]"
+
+# process string
+df_sf = df_sf %>% 
+  mutate(surface_total = ifelse(is.na(surface_total)==T,
+                               str_extract(string=df_sf$new_surface , pattern= regexp),
+                               surface_total))
+regp <- "[[:digit:]]"
+df_sf = df_sf %>% 
+  mutate(surface_total = ifelse(is.na(surface_total)==T,
+                                str_extract(string=df_sf$new_surface , pattern= regp),
+                                surface_total))
+
+sum(is.na(df_sf$surface_total))
+##Los NAs se reducen significativamente a solo 46186.
+
+df_sf = df_sf %>% 
+  mutate(surface_total = as.numeric(gsub(",", ".", df_sf$surface_total)))
+
+df_sf = df_sf %>% 
+  mutate(surface_total = as.numeric(df_sf$surface_total))
+
+##=== 2. vecinos espaciales para complementar observaciones ===##
+
+# load data
+mnzbog = st_read("MANZ.shp")
+colnames(mnz)
+
+leaflet() %>% addTiles() %>% addPolygons(data=mnzbog , color="red") %>% addCircles(data=df_sf)
+
+## spatial join
+sf::sf_use_s2(FALSE)
+mnzbog <- st_transform(mnzbog, st_crs(df_sf))
+df_sf_mnz = st_join(x = df_sf,y = mnzbog)
+
+colnames(df_sf_mnz)
+
+## average block
+df_sf_mnz = df_sf_mnz %>%
+  group_by(MANCODIGO) %>%
+  mutate(new_surface_2=median(surface_total,na.rm=T))
+
+table(is.na(df_sf_mnz$surface_total))
+
+table(is.na(df_sf_mnz$surface_total),
+      is.na(df_sf_mnz$new_surface_2)) # ahora solo tenemos 3083 missing values
+
+df_sf = df_sf %>% 
+  mutate(surface_total = ifelse(is.na(surface_total)==T,
+                                as.numeric(df_sf_mnz$new_surface_2),
+                                surface_total))
+table(is.na(df_sf$surface_total))
+
+##Ahora solo hay 3083 NAs de superficie total
+
+####Ahora diligenciamos información de estrato
+
+estratobog = st_read("ManzanaEstratificacion.shp")
+colnames(estratobog)
+
+leaflet() %>% addTiles() %>% addPolygons(data=mnzbog , color="red") %>% addCircles(data=df_sf)
+
+## spatial join
+estratobog <- st_transform(estratobog, st_crs(df_sf))
+df_sf_estrato = st_join(x = df_sf,y = estratobog)
+
+colnames(df_sf_mnz)
+
+## average block
+df_sf_estrato = df_sf_estrato %>%
+  group_by(CODIGO_MAN) %>%
+  mutate(estrato2=median(ESTRATO,na.rm=T))
+
+table(is.na(df_sf_estrato$estrato2))
+##Tenemos 60128 missings
+
+regexp <- "[[:digit:]]"
+
+# process string
+df_sf = df_sf %>% 
+  mutate(estrato = str_extract(df_sf$estrato, regexp))
+
+df_sf = df_sf %>% 
+  mutate(estrato = ifelse(is.na(estrato)==T,
+                    as.numeric(df_sf_estrato$estrato2),
+                    estrato))
+table(is.na(df_sf$estrato))
+##Uniendo los datos con los extraídos de la descripción ahora se tienen 54971 NAs
+
+##FALTA MEDELLIN PARA LA SURFACE TOTAL Y ESTRATO
+
+
+
+#Sacar la distancia a los business centers
+#Tratar los missing con los vecinos más cercanos, utilizar el promedio de la misma cuadra o utilizar la mediana
+#Utilizar bases externas para crear otras variables 
+#(i.e distancia a los bares o comercio, distancia a los parques, paraderos de bus, criminalidad, distancia a colegios)
+
+
+
 #Correlaciones
 MCor <- df %>% dplyr::select(rooms, bedrooms, bathrooms, surface_total,
                          surface_covered, price)
@@ -178,11 +492,7 @@ ggplot(df_sf, aes(x = bathrooms, y= price, color = l3)) + geom_point()
 ggplot(df_sf, aes(x = bedrooms, y= price, color = l3)) + geom_point()
 ggplot(df_sf, aes(x = surface_covered, y= price, color = l3)) + geom_point()
 
-#Sacar los metros cuadrados en descripción
-#Sacar la distancia a los business centers
-#Tratar los missing con los vecinos más cercanos, utilizar el promedio de la misma cuadra o utilizar la mediana
-#Utilizar bases externas para crear otras variables 
-#(i.e distancia a los bares o comercio, distancia a los parques, paraderos de bus, criminalidad, distancia a colegios)
+
 
 #------Data Cleaning---------------
 
