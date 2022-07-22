@@ -1,15 +1,105 @@
+###--------Problem Set 3 Big Data and Machine Learning------------###
+###--------Daniela Jaime, Maria Paula Nieto, Juan Diego Lopez---------
+
+##Paquetes 
+rm(list = ls())
+
+#install.packages("devtools")
+require("pacman")
+p_load("ggpubr")
+p_load(faraway)
+p_load(tidyverse)
+p_load(skimr)
+#devtools::install_github("boxuancui/DataExplorer")
+p_load(DataExplorer)
+p_load(scales)
+p_load(corrr)
+p_load(MASS)
+p_load(class)
+p_load(dplyr) #for data wrangling
+p_load(gamlr)
+p_load(dplyr)
+p_load(glmnet)
+p_load(pls)
+#devtools::install_github("thomasp85/patchwork")
+p_load(rvest)
+p_load(rio) 
+p_load(tidyverse)
+p_load(e1071) 
+p_load(EnvStats) 
+p_load(tidymodels) 
+p_load(ggplot2) 
+p_load(scales) 
+p_load(ggpubr) 
+p_load(knitr) 
+p_load(kableExtra)
+p_load(broom)
+p_load(caret)
+p_load(rio,
+       sf, # Leer/escribir/manipular datos espaciales
+       leaflet, # Visualizaciones dinámicas
+       tmaptools, # geocode_OSM()
+       osmdata) # Get OSM's data
 
 
-setwd("~/Universidad/MaestriaMEcA/Intersemestral2/BigData/Taller3")
+#Recuerden hacer el set de su directorio
 
-train_individual <- readRDS("dataPS3/train_personas.Rds")
+#Cargar Datos
+
+train <- readRDS("dataPS3/train.Rds")
+test <- readRDS("dataPS3/test.Rds")
 
 str(train)
 summary(train)
 
-#Analisis de la variable de supercificie reemplazar los NAs por lo otra superficie
+#Hay tres variables con muchos NAs: Bathrooms, surface_total, surface_covered
 
-#Sacar los polígonos de Chapinero y El Pobaldo
+#Vamos a unir las bases test y train para hacer más fácil la transformación
+test$test <- 1 #Binaria que me dice que este set es de test
+train$test <- 0 #0 porque no son parte del test
+
+test$price <- NA #Se crea la variable precio en Test como NAs para incluirla y poder combinar las bases
+
+df <- rbind(train, test)
+
+#Ahora es necesario volver el df un shape file
+df_sf = st_as_sf(x=df,coords=c("lon","lat"),crs=4326)
+class(df_sf)
+
+table(df_sf$l3)
+
+#Dvidir el set en Bogotá y Medellin 
+df_sf_bog <- df_sf %>% filter(l3 == "Bogotá D.C")
+df_sf_med <-  df_sf %>% filter(l3 == "Medellín")
+
+#Mirar los Mapas de cada ciudad
+leaflet() %>% addTiles() %>% addCircleMarkers(data=df_sf_bog, color = "red", weight = 2)
+leaflet() %>% addTiles() %>% addCircleMarkers(data=df_sf_med, color = "red", weight = 2)
+
+#Este problem set se centra en Chapinero y El Poblado, por lo que se mirarán estas dos localidades
+
+#Chapinero
+chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
+                   featuretype = "boundary:administrative", 
+                   format_out = "sf_polygon") %>% .$multipolygon
+
+df_sf_chapinero <- st_crop (df_sf, chapinero)
+
+leaflet() %>% addTiles() %>% addPolygons(data=chapinero) %>%
+                            addCircleMarkers(data=df_sf_chapinero, color = "red", weight = 2)
+
+#Poblado
+poblado <- getbb(place_name = "Comuna 14 - El Poblado", 
+                 featuretype = "boundary:administrative", 
+                 format_out = "sf_polygon")
+
+leaflet() %>% addTiles() %>% addPolygons(data=poblado)
+
+df_sf_poblado <- st_crop (df_sf, poblado)
+
+leaflet() %>% addTiles() %>% addPolygons(data=poblado) %>%
+  addCircleMarkers(data=df_sf_poblado, color = "red", weight = 2)
+
 #Sacar los metros cuadrados en descripción
 #Sacar la distancia a los business centers
 #Tratar los missing con los vecinos más cercanos, utilizar el promedio de la misma cuadra o utilizar la mediana
