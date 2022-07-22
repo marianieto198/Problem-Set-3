@@ -40,7 +40,7 @@ p_load(rio,
        leaflet, # Visualizaciones dinámicas
        tmaptools, # geocode_OSM()
        osmdata) # Get OSM's data
-
+p_load(corrplot)
 
 #Recuerden hacer el set de su directorio
 
@@ -54,6 +54,7 @@ summary(train)
 
 #Hay tres variables con muchos NAs: Bathrooms, surface_total, surface_covered
 
+#--------Combinar las bases-----------------
 #Vamos a unir las bases test y train para hacer más fácil la transformación
 test$test <- 1 #Binaria que me dice que este set es de test
 train$test <- 0 #0 porque no son parte del test
@@ -71,6 +72,8 @@ table(df_sf$l3)
 #Dvidir el set en Bogotá y Medellin 
 df_sf_bog <- df_sf %>% filter(l3 == "Bogotá D.C")
 df_sf_med <-  df_sf %>% filter(l3 == "Medellín")
+
+#----------Visualización de los datos en el mapa-------------------
 
 #Mirar los Mapas de cada ciudad
 leaflet() %>% addTiles() %>% addCircleMarkers(data=df_sf_bog, color = "red", weight = 2)
@@ -100,6 +103,47 @@ df_sf_poblado <- st_crop (df_sf, poblado)
 leaflet() %>% addTiles() %>% addPolygons(data=poblado) %>%
   addCircleMarkers(data=df_sf_poblado, color = "red", weight = 2)
 
+#---------Limpieza y Analisis de Datos--------------------
+
+#Análisis 
+str(df_sf)
+skim(df_sf)
+
+#Con SKim nos damos cuenta que hay información que no es necesaria para los modelos
+#Se eliminarán
+df_sf <- df_sf %>% dplyr::select(-ad_type, -l1, -l2, -currency,
+                                 -operation_type)
+
+#Volver algunas variables como factores
+df_sf <- df_sf %>%
+  mutate_at(.vars = c("l3", "property_type"),
+    .funs = factor)
+
+#Correlaciones
+MCor <- df %>% dplyr::select(rooms, bedrooms, bathrooms, surface_total,
+                         surface_covered, price)
+
+M <- cor(MCor, use = "pairwise.complete.obs")
+corrplot(M, method = "ellipse", type = "full")
+
+#Visualización de variables
+ggplot(df_sf, aes(x = price)) + geom_histogram()
+ggplot(df_sf, aes(x = price)) + geom_boxplot()
+
+ggplot(df_sf, aes(x = rooms)) + geom_histogram()
+ggplot(df_sf, aes(x = rooms)) + geom_boxplot()
+
+ggplot(df_sf, aes(x = bedrooms)) + geom_histogram()
+ggplot(df_sf, aes(x = bedrooms)) + geom_boxplot()
+
+ggplot(df_sf, aes(x = surface_covered)) + geom_histogram()
+ggplot(df_sf, aes(x = surface_covered)) + geom_boxplot()
+
+#Variables categoricas y su relacion con el precio
+ggplot(df_sf, aes(x = price)) + geom_boxplot() + facet_wrap(~ l3)
+
+ggplot(df_sf, aes(x = price)) + geom_boxplot() + facet_wrap(~ property_type)
+
 #Sacar los metros cuadrados en descripción
 #Sacar la distancia a los business centers
 #Tratar los missing con los vecinos más cercanos, utilizar el promedio de la misma cuadra o utilizar la mediana
@@ -116,3 +160,4 @@ leaflet() %>% addTiles() %>% addPolygons(data=poblado) %>%
 #----------Modelo XGboost-----------
 
 ####OJO SI EL PRECIO ESTÁ MENOR EN 40 MILLONES O 10000 USD TENDREMOS PENALIZACIÓN #####
+
