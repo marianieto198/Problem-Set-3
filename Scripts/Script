@@ -144,6 +144,11 @@ ggplot(df_sf, aes(x = price)) + geom_boxplot() + facet_wrap(~ l3)
 
 ggplot(df_sf, aes(x = price)) + geom_boxplot() + facet_wrap(~ property_type)
 
+#Algunas combinaciones
+ggplot(df_sf, aes(x = bathrooms, y= price, color = l3)) + geom_point()
+ggplot(df_sf, aes(x = bedrooms, y= price, color = l3)) + geom_point()
+ggplot(df_sf, aes(x = surface_covered, y= price, color = l3)) + geom_point()
+
 #Sacar los metros cuadrados en descripción
 #Sacar la distancia a los business centers
 #Tratar los missing con los vecinos más cercanos, utilizar el promedio de la misma cuadra o utilizar la mediana
@@ -160,4 +165,5 @@ ggplot(df_sf, aes(x = price)) + geom_boxplot() + facet_wrap(~ property_type)
 #----------Modelo XGboost-----------
 
 ####OJO SI EL PRECIO ESTÁ MENOR EN 40 MILLONES O 10000 USD TENDREMOS PENALIZACIÓN #####
+
 
