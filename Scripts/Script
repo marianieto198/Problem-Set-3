@@ -451,8 +451,121 @@ df_sf = df_sf %>%
 table(is.na(df_sf$estrato))
 ##Uniendo los datos con los extraídos de la descripción ahora se tienen 54971 NAs
 
-##FALTA MEDELLIN PARA LA SURFACE TOTAL Y ESTRATO
+##---------------FALTA MEDELLIN PARA ESTRATO
 
+# load data
+mnzmed = st_read("Manzanas_07-20.shp")
+colnames(mnz)
+
+leaflet() %>% addTiles() %>% addPolygons(data=mnzmed , color="red") %>% addCircles(data=df_sf)
+
+## spatial join
+sf::sf_use_s2(FALSE)
+mnzmed <- st_transform(mnzmed, st_crs(df_sf))
+df_sf_mnz = st_join(x = df_sf,y = mnzmed)
+
+colnames(df_sf_mnz)
+
+## average block
+df_sf_mnz = df_sf_mnz %>%
+  group_by(COBAMA) %>%
+  mutate(new_surface_2=median(surface_total,na.rm=T))
+
+table(is.na(df_sf_mnz$surface_total))
+
+table(is.na(df_sf_mnz$surface_total),
+      is.na(df_sf_mnz$new_surface_2)) # ahora solo tenemos 3083 missing values
+
+df_sf = df_sf %>% 
+  mutate(surface_total = ifelse(is.na(surface_total)==T,
+                                as.numeric(df_sf_mnz$new_surface_2),
+                                surface_total))
+table(is.na(df_sf$surface_total))
+
+##Ahora ya no tenemos NAs en la variable de superficie total
+
+####Ahora diligenciamos información de estrato
+
+estratomede = st_read("ManzanaEstratificacion.shp")
+colnames(estratomede)
+
+leaflet() %>% addTiles() %>% addPolygons(data=estratomede , color="red") %>% addCircles(data=df_sf)
+
+## spatial join
+estratomede <- st_transform(estratomede, st_crs(df_sf))
+df_sf_estrato = st_join(x = df_sf,y = estratomede)
+
+colnames(df_sf_mnz)
+
+## average block
+df_sf_estrato = df_sf_estrato %>%
+  group_by(CODIGO_MAN) %>%
+  mutate(estrato2=median(ESTRATO,na.rm=T))
+
+table(is.na(df_sf_estrato$estrato2))
+##Tenemos 60128 missings
+
+regexp <- "[[:digit:]]"
+
+# process string
+df_sf = df_sf %>% 
+  mutate(estrato = str_extract(df_sf$estrato, regexp))
+
+df_sf = df_sf %>% 
+  mutate(estrato = ifelse(is.na(estrato)==T,
+                          as.numeric(df_sf_estrato$estrato2),
+                          estrato))
+table(is.na(df_sf$estrato))
+##Uniendo los datos con los extraídos de la descripción ahora se tienen XXX NAs
+
+#------------------------Utilizar bases externas para crear otras variables
+
+###Bares 
+
+barbog = opq(bbox = st_bbox(df_sf)) %>%
+  add_osm_feature(key = "amenity", value = "bar") %>%
+  osmdata_sf() %>% .$osm_points 
+barbog %>% head()
+
+dist_bar = st_distance(x=df_sf , y=barbog)
+dist_bar
+
+min_dist = apply(dist_bar , 1 , min)
+min_dist
+
+##Puntos de transporte 
+bus_station = opq(bbox = st_bbox(df_sf)) %>%
+  add_osm_feature(key = "amenity", value = "bus_station") %>%
+  osmdata_sf() %>% .$osm_points 
+
+bus_station %>% head()
+
+dist_bus = st_distance(x=df_sf , y=bus_station)
+dist_bus
+
+min_dist = apply(dist_bus , 1 , min)
+min_dist
+
+##Ciclovia
+ciclovia = st_read("Ciclovia.shp")
+colnames(ciclovia)
+
+leaflet() %>% addTiles() %>% addPolygons(data=ciclovia , color="red") %>% addCircles(data=df_sf)
+
+## spatial join
+ciclovia <- st_transform(ciclovia, st_crs(df_sf))
+df_sf_ciclovia = st_join(x = df_sf,y = ciclovia)
+
+
+#-------------------Sacar la distancia a los business centers
+
+#En primer lugar se define a la plaza de bolivar como CBC para Bogotá
+
+CBC1bog <- geocode_OSM("Plaza de Bolívar, Bogotá", as.sf=T)
+leaflet() %>% addTiles() %>% addCircles(data=CBC1bog)
+
+df_sf$dist_CBC1bog = st_distance(x=df_sf , y=CBC1bog)
+df_sf$dist_CBC1bog
 
 
 #Sacar la distancia a los business centers
