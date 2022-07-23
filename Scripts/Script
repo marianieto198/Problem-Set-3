@@ -533,6 +533,9 @@ dist_bar
 min_dist = apply(dist_bar , 1 , min)
 min_dist
 
+df_sf = df_sf %>% 
+  mutate(dist_bar = apply(dist_bar , 1 , min))
+
 ##Puntos de transporte 
 bus_station = opq(bbox = st_bbox(df_sf)) %>%
   add_osm_feature(key = "amenity", value = "bus_station") %>%
@@ -543,20 +546,36 @@ bus_station %>% head()
 dist_bus = st_distance(x=df_sf , y=bus_station)
 dist_bus
 
-min_dist = apply(dist_bus , 1 , min)
+df_sf = df_sf %>% 
+  mutate(dist_bus = apply(dist_bus , 1 , min))
 min_dist
 
 ##Ciclovia
 ciclovia = st_read("Ciclovia.shp")
-colnames(ciclovia)
+st_crs(ciclovia)
+ciclovia<-st_transform(ciclovia, 4686)
+ciclovia <- st_set_crs(ciclovia, 4686)
 
-leaflet() %>% addTiles() %>% addPolygons(data=ciclovia , color="red") %>% addCircles(data=df_sf)
+dist_ciclovia = st_distance(df_sf_bog, ciclovia)
 
-## spatial join
-ciclovia <- st_transform(ciclovia, st_crs(df_sf))
-df_sf_ciclovia = st_join(x = df_sf,y = ciclovia)
+##Es necesario agregar las obsevaciones de Medellín a esta variable para pegarla a df_sf
 
+ciclovia1 = st_read("geo_export_841eee89-8ede-4841-acaa-3668c6f31aab.shp")
+ciclovia1<-st_transform(ciclovia1, 4686)
+ciclovia1 <- st_set_crs(ciclovia1, 4686)
 
+myvars <- names(ciclovia1) %in% c("estado", "label", "nombre", "objectid", "shapelen")
+ciclovia1 <- ciclovia1[!myvars]
+
+##No me corrió esta distancia
+dist_ciclovia1 = st_distance(df_sf_med, ciclovia1)
+
+df_sf$ciclovia <- paste(dist_ciclovia, dist_ciclovia1, sep=" ")
+
+df_sf = df_sf %>% 
+  mutate(ciclovia = apply(dist_ciclovia , 1 , min))
+  
+  
 #-------------------Sacar la distancia a los business centers
 
 #En primer lugar se define a la plaza de bolivar como CBC para Bogotá
