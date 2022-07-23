@@ -520,6 +520,8 @@ table(is.na(df_sf$estrato))
 
 #------------------------Utilizar bases externas para crear otras variables
 
+#------------------------Utilizar bases externas para crear otras variables
+
 ###Bares 
 
 barbog = opq(bbox = st_bbox(df_sf)) %>%
@@ -556,6 +558,10 @@ st_crs(ciclovia)
 ciclovia<-st_transform(ciclovia, 4686)
 ciclovia <- st_set_crs(ciclovia, 4686)
 
+st_crs(df_sf_bog)
+df_sf_bog<-st_transform(df_sf_bog, 4686)
+
+
 dist_ciclovia = st_distance(df_sf_bog, ciclovia)
 
 ##Es necesario agregar las obsevaciones de Medellín a esta variable para pegarla a df_sf
@@ -563,19 +569,53 @@ dist_ciclovia = st_distance(df_sf_bog, ciclovia)
 ciclovia1 = st_read("geo_export_841eee89-8ede-4841-acaa-3668c6f31aab.shp")
 ciclovia1<-st_transform(ciclovia1, 4686)
 ciclovia1 <- st_set_crs(ciclovia1, 4686)
+df_sf_med<-st_transform(df_sf_med, 4686)
 
 myvars <- names(ciclovia1) %in% c("estado", "label", "nombre", "objectid", "shapelen")
 ciclovia1 <- ciclovia1[!myvars]
 
-##No me corrió esta distancia
 dist_ciclovia1 = st_distance(df_sf_med, ciclovia1)
 
-df_sf$ciclovia <- paste(dist_ciclovia, dist_ciclovia1, sep=" ")
+df_sf = df_sf %>% 
+  mutate(ciclovia =NA)
 
 df_sf = df_sf %>% 
-  mutate(ciclovia = apply(dist_ciclovia , 1 , min))
-  
-  
+  mutate(ciclovia = ifelse(l3=="Bogotá D.C.", apply(dist_ciclovia , 1 , min), apply(dist_ciclovia1 , 1 , min))) 
+         
+##Parques 
+parques = opq(bbox = st_bbox(df_sf)) %>%
+  add_osm_feature(key = "leisure", value = "park") %>%
+  osmdata_sf() %>% .$osm_points 
+##Es muy pesado el vector para sacar la distancia entonces se saca por ciudades
+
+parquesbog <- opq(bbox = getbb("Bogota Colombia")) %>%
+  add_osm_feature(key = "leisure", value = "park")
+
+parques_sf <- osmdata_sf(parquesbog)
+parques_geometria <- parques_sf$osm_polygons 
+parques_geometria <-st_transform(parques_geometria, 4686)
+
+dist_parkbog = st_distance(x=df_sf_bog , y=parques_geometria)
+dist_parkbog
+
+##Ahora Medellín
+parquesmed <- opq(bbox = getbb("Medellin Colombia")) %>%
+  add_osm_feature(key = "leisure", value = "park")
+
+parques_sf <- osmdata_sf(parquesmed)
+parques_geometria <- parques_sf$osm_polygons 
+parques_geometria <-st_transform(parques_geometria, 4686)
+
+dist_parkmed = st_distance(x=df_sf_med , y=parques_geometria)
+dist_parkmed
+
+df_sf = df_sf %>% 
+  mutate(parques =NA)
+
+df_sf = df_sf %>% 
+  mutate(parques = ifelse(l3=="Bogotá D.C.", apply(dist_parkbog , 1 , min), apply(dist_parkmed , 1 , min))) 
+
+
 #-------------------Sacar la distancia a los business centers
 
 #En primer lugar se define a la plaza de bolivar como CBC para Bogotá
@@ -585,6 +625,13 @@ leaflet() %>% addTiles() %>% addCircles(data=CBC1bog)
 
 df_sf$dist_CBC1bog = st_distance(x=df_sf , y=CBC1bog)
 df_sf$dist_CBC1bog
+
+#Se define ahora la Plaza de Botero para Medellín
+CBC1med <- geocode_OSM("Plaza de Botero, Medellin", as.sf=T)
+leaflet() %>% addTiles() %>% addCircles(data=CBC1med)
+
+df_sf$dist_CBC1med = st_distance(x=df_sf , y=CBC1med)
+df_sf$dist_CBC1med
 
 
 #Sacar la distancia a los business centers
