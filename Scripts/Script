@@ -640,12 +640,14 @@ df_sf = df_sf %>%
 
                          
 
+
 ##-----------------Contaminación Bogotá 
 contaminacionbog = st_read("Ozono_Prom_Anual.shp")
 colnames(contaminacionbog)
 
 leaflet() %>% addTiles() %>% addPolygons(data=contaminacionbog , color="red") %>% addCircles(data=df_sf_bog)
 conc_ozono
+contaminacionbog <-st_transform(contaminacionbog, 4686)
 
 contaminacionbog <- st_transform(contaminacionbog, st_crs(df_sf_bog))
 df_sf_contaminacion = st_join(x = df_sf_bog, y = contaminacionbog)
@@ -653,11 +655,47 @@ df_sf_contaminacion = st_join(x = df_sf_bog, y = contaminacionbog)
 df_sf_bog = df_sf_bog %>% 
   mutate(contaminacion =df_sf_contaminacion$conc_ozono)
 
-df_sf = df_sf %>% 
-  mutate(contaminacion =NA)
+##Hay pocas observaciones en la base de contaminación por lo que si se va a analizar 
+##solo chapinero no habría mucha variación en la variable para cada vivienda.
+
+##---------------------Colegios de Bogotá
+
+colegiosbog = st_read("Colegios_2022_03.shp")
+colnames(colegiosbog)
+
+leaflet() %>% addTiles() %>% addPolygons(data=colegiosbog , color="red") %>% addCircles(data=df_sf_bog)
+
+
+colegiosbog <-st_transform(colegiosbog, 4686)
+
+dist_colbog = st_distance(x=df_sf_bog, y=colegiosbog)
+dist_colbog
 
 df_sf = df_sf %>% 
-  mutate(contaminacion = ifelse(l3=="Bogotá D.C", df_sf_bog$contaminacion, NA))
+  mutate(colegios =NA)
+
+df_sf = df_sf %>% 
+  mutate(colegios= ifelse(l3=="Bogotá D.C", apply(dist_colbog , 1 , min), NA)) 
+
+
+##--------------------CAIs de Bogotá
+
+CAIbog = st_read("ComandoAtencionInmediata.shp")
+colnames(CAIbog)
+
+leaflet() %>% addTiles() %>% addPolygons(data=CAIbog , color="red") %>% addCircles(data=df_sf_bog)
+
+CAIbog <-st_transform(CAIbog, 4686)
+
+dist_CAIbog = st_distance(x=df_sf_bog, y=CAIbog)
+dist_CAIbog
+
+df_sf = df_sf %>% 
+  mutate(CAI =NA)
+
+df_sf = df_sf %>% 
+  mutate(CAI = ifelse(l3=="Bogotá D.C", apply(dist_colbog , 1 , min), NA))
+
 
 
 
