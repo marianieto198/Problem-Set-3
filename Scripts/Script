@@ -696,6 +696,28 @@ df_sf = df_sf %>%
 df_sf = df_sf %>% 
   mutate(CAI = ifelse(l3=="Bogotá D.C", apply(dist_colbog , 1 , min), NA))
 
+#-------------------Centros comerciales Bogotá
+
+Centroscomercialesbog = st_read("CCo.shp")
+colnames(Centroscomercialesbog)
+
+
+Centroscomercialesbog <-st_transform(Centroscomercialesbog, 4686)
+
+dist_CCbog = st_distance(x=df_sf_bog, y=Centroscomercialesbog)
+dist_CCbog
+
+
+df_sf_bog = df_sf_bog %>% 
+  mutate(centrocomercial= apply(dist_colbog , 1 , min))
+
+df_sf = df_sf %>% 
+  mutate(centrocomercial =NA)
+
+df_sf = df_sf %>% 
+  mutate(centrocomercial = ifelse(l3=="Bogotá D.C", df_sf_bog$centrocomercial, NA))
+
+head(df_sf$centrocomercial)
 
 
 
