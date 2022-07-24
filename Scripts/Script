@@ -522,6 +522,7 @@ table(is.na(df_sf$estrato))
 
 #------------------------Utilizar bases externas para crear otras variables
 
+
 ###Bares 
 
 barbog = opq(bbox = st_bbox(df_sf)) %>%
@@ -580,7 +581,7 @@ df_sf = df_sf %>%
   mutate(ciclovia =NA)
 
 df_sf = df_sf %>% 
-  mutate(ciclovia = ifelse(l3=="Bogotá D.C.", apply(dist_ciclovia , 1 , min), apply(dist_ciclovia1 , 1 , min))) 
+  mutate(ciclovia = ifelse(l3=="Bogotá D.C", apply(dist_ciclovia , 1 , min), apply(dist_ciclovia1 , 1 , min))) 
          
 ##Parques 
 parques = opq(bbox = st_bbox(df_sf)) %>%
@@ -594,8 +595,9 @@ parquesbog <- opq(bbox = getbb("Bogota Colombia")) %>%
 parques_sf <- osmdata_sf(parquesbog)
 parques_geometria <- parques_sf$osm_polygons 
 parques_geometria <-st_transform(parques_geometria, 4686)
+df_sf_chapinero <-st_transform(df_sf_chapinero, 4686)
 
-dist_parkbog = st_distance(x=df_sf_bog , y=parques_geometria)
+dist_parkbog = st_distance(x=df_sf_chapinero , y=parques_geometria)
 dist_parkbog
 
 ##Ahora Medellín
@@ -605,15 +607,58 @@ parquesmed <- opq(bbox = getbb("Medellin Colombia")) %>%
 parques_sf <- osmdata_sf(parquesmed)
 parques_geometria <- parques_sf$osm_polygons 
 parques_geometria <-st_transform(parques_geometria, 4686)
+df_sf_poblado <- st_transform(df_sf_poblado, 4686)
 
-dist_parkmed = st_distance(x=df_sf_med , y=parques_geometria)
+dist_parkmed = st_distance(x=df_sf_poblado, y=parques_geometria)
 dist_parkmed
 
 df_sf = df_sf %>% 
   mutate(parques =NA)
 
 df_sf = df_sf %>% 
-  mutate(parques = ifelse(l3=="Bogotá D.C.", apply(dist_parkbog , 1 , min), apply(dist_parkmed , 1 , min))) 
+  mutate(parques = ifelse(l3=="Bogotá D.C", apply(dist_parkbog , 1 , min), apply(dist_parkmed , 1 , min))) 
+
+#------------------Delitos de hurto a personas Bogotá
+
+crimenbog = st_read("DAISCAT.shp")
+colnames(crimenbog)
+CMHPTOTAL
+
+leaflet() %>% addTiles() %>% addPolygons(data=crimenbog , color="red") %>% addCircles(data=df_sf)
+
+crimenbog <- st_transform(crimenbog, st_crs(df_sf_bog))
+df_sf_bog= st_join(x = df_sf_bog, y = crimenbog)
+
+df_sf_bog = df_sf_bog %>% 
+  mutate(crimenbog =df_sf_bog$CMHP19CONT)
+
+df_sf = df_sf %>% 
+  mutate(crimen =NA)
+
+df_sf = df_sf %>% 
+  mutate(crimen = ifelse(l3=="Bogotá D.C", df_sf_bog$CMHP19CONT, NA))
+
+                         
+
+##-----------------Contaminación Bogotá 
+contaminacionbog = st_read("Ozono_Prom_Anual.shp")
+colnames(contaminacionbog)
+
+leaflet() %>% addTiles() %>% addPolygons(data=contaminacionbog , color="red") %>% addCircles(data=df_sf_bog)
+conc_ozono
+
+contaminacionbog <- st_transform(contaminacionbog, st_crs(df_sf_bog))
+df_sf_contaminacion = st_join(x = df_sf_bog, y = contaminacionbog)
+
+df_sf_bog = df_sf_bog %>% 
+  mutate(contaminacion =df_sf_contaminacion$conc_ozono)
+
+df_sf = df_sf %>% 
+  mutate(contaminacion =NA)
+
+df_sf = df_sf %>% 
+  mutate(contaminacion = ifelse(l3=="Bogotá D.C", df_sf_bog$contaminacion, NA))
+
 
 
 #-------------------Sacar la distancia a los business centers
