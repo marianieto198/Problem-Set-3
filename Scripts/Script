@@ -283,6 +283,13 @@ df_sf = df_sf %>%
 sum(is.na(df_sf$pisos))
 ##110970 NAs
 
+
+regexp <- "[[:digit:]]"
+
+# process string
+df_sf = df_sf %>% 
+  mutate(pisos = str_extract(df_sf$pisos, regexp))
+
 ##Estrato
 
 k = "[:space:]+estrato+[:space:]+[:digit:]" ## pattern
