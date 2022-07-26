@@ -909,7 +909,6 @@ dff_trainReg <- dff_train
 YTrainReg <- dff_trainReg$price
 XTrainReg <- dff_trainReg %>% dplyr::select(-price)
 
-
 set.seed(1948)
 trControl1 <- trainControl(method='repeatedcv', 
                            number=5, 
@@ -926,7 +925,7 @@ grid_default <- expand.grid(nrounds = c(250,500),
                             subsample = c(0.6))
 
 ModeloXGBoost <- train(
-  price ~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + l3 + property_type,
+  log(price) ~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + l3 + property_type ,
   data = dff_trainReg,
   method = "xgbTree",
   trControl = trControl1,
@@ -946,13 +945,15 @@ RMSEXG <- sqrt(MSEXG)
 XTestXG <- cbind(XTest, YhatXG)
 
 
+
 #---------------Lasso y Ridge-----------------------------------------------------
 
 #Seleccionamos la base y la modificamos. La variable dependiente sera price
 #Se eliminan las variables que miden lo mismo 
 
-df_train_price<- dplyr::select(dff_train,-l3)
+df_train_price<- dplyr::select(dff_train,-l3, -estrato, -test, -CAI, -centrocomercial)
 df_test_price <- dff_test
+
 
 #Se crean las variables de entrenamiento 
 YTrain_price <- df_train_price$price
@@ -963,8 +964,10 @@ YTest_price<-df_test_price$price
 XTest_price<-dplyr::select(df_test_price,-price)
 
 #Estimacion modelo OLS 
-modelo_OLS_price<-lm(price~ ., data = df_train_price)
-summary(modelo_OLS_price) #Adjuted R-squared 0.3113
+modelo_OLS_price<-lm(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type , data = df_train_price)
+summary(modelo_OLS_price) #Adjuted R-squared 0.35
+
+##CAI, Centro comercial , test y bedrooms están fuertemente correlacionadas con otras variables
 #Coeficientes del modelo OLS 
 mt_coeficientes_price <- modelo_OLS_price$coefficients %>%
   enframe(name = "predictor", value = "coeficiente")
@@ -978,22 +981,28 @@ mt_coeficientes_price %>%
   theme(axis.text.x = element_text(size = 5, angle = 45))
 #Predicciones y MSE 
 #Base de entrenamiento 
+
 pred_OLS_train_price<- predict(modelo_OLS_price, newdata = df_train_price)
 OLS_training_mse_price <- mean((pred_OLS_train_price - YTrain_price)^2)
-paste("Error (mse) de entrenamiento:",OLS_training_mse_price)
+paste("Error (mse) de entrenamiento:", OLS_training_mse_price)
+
+##MSE: 936543931113758208
+
 #Base de prueba 
 pred_OLS_test_price <- predict(modelo_OLS_price, newdata = df_test_price)
 OLS_test_mse_price<-mean((pred_OLS_test_price - YTest_price)^2)
 paste("Error (mse) de test:", OLS_test_mse_price)
 
+##MSE: 946767968047423232
+
 #Regularizacion - Ridge 
 require(glmnet)
 
 #Se crean las matrices de entrenamiento y test 
-x_train_ridge_price <- model.matrix(price~., data =df_train_price)[, -1]
+x_train_ridge_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type, data =df_train_price)[, -1]
 y_train_ridge_price <- df_train_price$price
 
-x_test_ridge_price <- model.matrix(price~., data = df_test_price)[, -1]
+x_test_ridge_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type, data = df_test_price)[, -1]
 y_test_ridge_price <- df_test_price$price
 #Creacion de modelo
 #Para Ridge el alpha debe ser igual a 0 
@@ -1045,8 +1054,11 @@ plot(cv_error_ridge_price)
 
 #Encontramos el lambda que minimiza MSE 
 paste("Mejor valor de lambda encontrado:", cv_error_ridge_price$lambda.min)
+##1418717173.46104
+
 #Mayor lambda que no se aleja más de 1 desviacion estandar del minimo 
 paste("Mejor valor de lambda encontrado + 1 desviación estándar:", cv_error_ridge_price$lambda.1se)
+##8309456019.8958
 
 #Estimamos modelo usando mejor valor lambda mas una desviacion estandar 
 modelo_lambda_ods_price <- glmnet(
@@ -1075,18 +1087,22 @@ pred_ridge_train_price <- predict(modelo_lambda_ods_price, newx = x_train_ridge_
 #MSE train 
 ridge_training_mse_price <- mean((pred_ridge_train_price - y_train_ridge_price)^2)
 paste("Error (mse) de entrenamiento:", ridge_training_mse_price)
+##418151203560019520
+
 #Predicciones Ridge Test 
 pred_ridge_test_price <- predict(modelo_lambda_ods_price, newx = x_test_ridge_price)
 #MSE test 
 test_mse_ridge_price <- mean((pred_ridge_test_price - y_test_ridge_price)^2)
 paste("Error (mse) de test:", test_mse_ridge_price)
 
+##422702142376061632
+
 #Regularizacion - Lasso 
 #Matrices de entrenamiento y test
-x_train_lasso_price <- model.matrix(price~., data = df_train_price)[, -1]
+x_train_lasso_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type, data = df_train_price)[, -1]
 y_train_lasso_price <- df_train_price$price
 
-x_test_lasso_price <- model.matrix(price~., data = df_test_price)[, -1]
+x_test_lasso_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type, data = df_test_price)[, -1]
 y_test_lasso_price <- df_test_price$price
 
 #Creacion del modelo 
@@ -1136,9 +1152,11 @@ plot(cv_error_lasso_price)
 
 #Mejor lambda determinado 
 paste("Mejor valor de lambda encontrado:", cv_error_lasso_price$lambda.min)
+##72271.4108560071"
 
 #Mejor lambda a una desviacion estandar 
 paste("Mejor valor de lambda encontrado + 1 desviación estándar:", cv_error_lasso_price$lambda.1se)
+##148627045.967101
 
 #Estimacion de modelo con lambda optimo 
 modelo_op_lasso_price <- glmnet(
@@ -1175,20 +1193,20 @@ pred_lasso_train_price <- predict(modelo_op_lasso_price
 #MSE train 
 lasso_training_mse_price <- mean((pred_lasso_train_price - y_train_lasso_price)^2)
 paste("Error (mse) de entrenamiento:", lasso_training_mse_price)
+##353646725984540032
+
+
 #Predicciones Ridge Test 
 pred_lasso_test_price <- predict(modelo_op_lasso_price, newx = x_test_lasso_price)
 #MSE test 
 lasso_test_mse_price <- mean((pred_lasso_test_price - y_test_lasso_price)^2)
 paste("Error (mse) de test:", lasso_test_mse_price)
+#358350442421414528
 
 #-----------------Resultados preliminares regresion----------------------------------
 #Se puede ver que en los modelos XGboost y Lasso hay un mayor peso de algunas variables.
-#En el caso de XGBoost las variables más importantes son Arriendo (que se crea apartir de P5130 y P5140,
-#Si no cotiza a pensión, el número de cuartos, la edad del jefe del hogar, si recibe ingresos por arriendo o pension,
-#La educación del jefe del hogar, el tipo de vivienda que viven, y el tiempo que lleva en la empresa)
+#En el caso de XGBoost las variables más importantes son la superficie total, la distnacia a la ciclovia, al CBC y las habitaciones,
 #Con esto en mente se crearán nuevos modelos para ser más precisos.
-#Por otro lado, se utilizará la variable ingtotugarr porque vimos que tiene una relación muy grande con la variable
-# arriendo y además es la que se usa para medir la linea de pobreza de los hogares
 
 MSEValores <- c(OLS_test_mse_price, test_mse_ridge_price, lasso_test_mse_price, MSEXG)
 RMSEValores <- sapply(MSEValores, sqrt)
@@ -1198,15 +1216,16 @@ ResultadosInicialesRegresio <- data.frame(ModeloNombre, MSEValores, RMSEValores)
 
 #----------Modelo 5 Elastic Net-------
 el <- train(
-  price ~ rooms + bedrooms + bathrooms + surface_total + estrato + parqueaderos + pisos + dist_bar + dist_bus + ciclovia + parques + crimen + colegios + CAI + centrocomercial +distancia_CBC , data = dff_train, method = "glmnet",
+  log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type , data = dff_train, method = "glmnet",
   trControl = trainControl("cv", number = 10), preProcess = c("center", "scale"))
 
 plot(el)
 el
 
 YhatEl <- predict(el, dff_test)
-MSEtest_el <- mean((YTest_ing - YhatEl)^2)
+MSEtest_el <- mean((YTest_price - YhatEl)^2)
 paste("Error (mse) de test:", MSEtest_el)
+##946767968051965824
 RMSE_el <- sqrt(MSEtest_el)
 
 ModeloElStats <- c("Elastic Net", MSEtest_el, RMSE_el)
@@ -1214,25 +1233,12 @@ ModeloElStats <- c("Elastic Net", MSEtest_el, RMSE_el)
 ResultadosInicialesRegresio <- rbind(ResultadosInicialesRegresio, ModeloElStats)
 
 
-#-----------------Modelo 6------------------
-ModeloPv <- lm(Ingtotugarr ~ Arriendo + PensionJefe_2 + JefeMujer + EdadJefe + as.factor(P5090) + HorasTrabJefe, 
-               data = dff_train)
-
-summary(ModeloPv)
-
-YModeloPv <- predict(ModeloPv, dff_test)
-MSEtestModeloPV <- mean((YTest_price - YModeloPv)^2)
-RMSE_Pv <- sqrt(MSEtestModeloPV)
-ModeloPvStats <- c("Modelo Pv", MSEtestModeloPV, RMSE_Pv)
-
-ResultadosInicialesRegresio <- rbind(ResultadosInicialesRegresio, ModeloPvStats)
-
-#------Modelo Ridge 7-----------
+#------Modelo Ridge 6-----------
 
 set.seed(1948)
 
 lambda = 10^seq(-2, 3, length = 10)
-ridge_caret<- train(Ingtotugarr ~ JefeMujer + EdadJefe + EducacionJefe_2 + EducacionJefe_3 + EducacionJefe_4 + EducacionJefe_5 + EducacionJefe_6 + ActividadJefe_2 + ActividadJefe_3 + ActividadJefe_4 + ActividadJefe_5 + ActividadJefe_6,
+ridge_caret<- train(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type,
                     data = dff_train, 
                     method = "glmnet",
                     trControl = trainControl("cv", number = 10),
@@ -1252,8 +1258,782 @@ ridge_caretStats <- c("Modelo RidgeEducacionYActividad", MSEtestridge_caret, RMS
 ResultadosInicialesRegresio <- rbind(ResultadosInicialesRegresio, ridge_caretStats)
 write.csv(ResultadosInicialesRegresio,"ResultadosDeModelos.csv", row.names = FALSE)
 
+#-----------------Modelos Bogotá------------------
+
+require(caret)
+require("gtsummary")
+
+df_trainbog <- subset(df_sf, l3 == "Bogotá D.C")
+
+##Se imputan dos valores NA en crimen y 28366 por su importancia en el XGBOOST
+df_trainbog = df_trainbog %>% 
+  mutate(crimen = ifelse(is.na(crimen)==T,
+                              median(crimen, na.rm = TRUE),
+                              crimen))
+
+df_trainbog = df_trainbog %>% 
+  mutate(estrato = ifelse(is.na(estrato)==T,
+                         median(estrato, na.rm = TRUE),
+                         estrato))
+
+
+df_trainbog <- subset(df_trainbog, test == 0)
+df_trainbog <- dplyr::select(df_trainbog,-title, -property_id, -description, -new_surface, -contaminacion, -start_date, -end_date, -created_on, -geometry)
+set.seed(1948)
+df_trainbog <-  st_drop_geometry(df_trainbog)
+index <-  round(nrow(df_trainbog)*0.3,digits=0)
+#Muestra aleatorizada del  dataset y mantener el número de observaciones del indice
+test.indices <- sample(1:nrow(df_trainbog), index)
+# set de entrenamiento
+dff_trainbog<-df_trainbog[-test.indices,] 
+#30% set de testeo
+dff_testbog<-df_trainbog[test.indices,] 
+#Seleccionar el set de entrenamiento en variables independientes y dependientes
+YTrain <- dff_trainbog$price
+XTrain <- dff_trainbog %>% dplyr::select(-price)
+#Seleccionar el set de testeo en variables independientes y dependientes
+YTest <- dff_testbog$price
+XTest <- dff_testbog %>% dplyr::select(- price)
+
+
+#--------Modelo XGboost---------------------
+#Se crea la base a utilizar
+YTestReg <- dff_testbog$price
+dff_trainReg <- dff_trainbog 
+YTrainReg <- dff_trainReg$price
+XTrainReg <- dff_trainReg %>% dplyr::select(-price)
+
+set.seed(1948)
+trControl1 <- trainControl(method='repeatedcv', 
+                           number=5, 
+                           repeats=1,
+                           allowParallel = TRUE)
+
+
+grid_default <- expand.grid(nrounds = c(250,500),
+                            max_depth = c(4,5,6),
+                            eta = c(0.05),
+                            gamma = c(0.01),
+                            min_child_weight = c(10, 25, 50),
+                            colsample_bytree = c(0.7),
+                            subsample = c(0.6))
+
+ModeloXGBoost <- train(
+  log(price) ~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + l3 + property_type + CAI +crimen + estrato,
+  data = dff_trainReg,
+  method = "xgbTree",
+  trControl = trControl1,
+  tuneGrid = grid_default, 
+  na.action=na.exclude)
+
+
+plot(ModeloXGBoost)
+ModeloXGBoost
+varImp(ModeloXGBoost,scale=TRUE)
+
+
+YhatXG <-predict(ModeloXGBoost, XTest)
+MSEXG <- sum((YTestReg-YhatXG)^2)/length(YTestReg)
+RMSEXG <- sqrt(MSEXG)
+
+XTestXG <- cbind(XTest, YhatXG)
+
+
+
+#---------------Lasso y Ridge-----------------------------------------------------
+
+#Seleccionamos la base y la modificamos. La variable dependiente sera price
+#Se eliminan las variables que miden lo mismo 
+
+df_train_price<- dplyr::select(dff_trainbog, -l3, -test, -centrocomercial)
+df_test_price <- dff_testbog
+
+
+#Se crean las variables de entrenamiento 
+YTrain_price <- df_train_price$price
+XTrain_price <- dplyr::select(df_train_price,-price)
+
+#Se crean las variables de test 
+YTest_price<-df_test_price$price
+XTest_price<-dplyr::select(df_test_price,-price)
+
+#Estimacion modelo OLS 
+modelo_OLS_price<-lm(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type + estrato +CAI +crimen  , data = df_train_price)
+summary(modelo_OLS_price) #Adjuted R-squared 0.35
+
+##CAI, Centro comercial , test y bedrooms están fuertemente correlacionadas con otras variables
+#Coeficientes del modelo OLS 
+mt_coeficientes_price <- modelo_OLS_price$coefficients %>%
+  enframe(name = "predictor", value = "coeficiente")
+
+mt_coeficientes_price %>%
+  filter(predictor != "(Intercept)") %>%
+  ggplot(aes(x = predictor, y = coeficiente)) +
+  geom_col() +
+  labs(title = "Coeficientes del modelo OLS Precio") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 5, angle = 45))
+#Predicciones y MSE 
+#Base de entrenamiento 
+
+pred_OLS_train_price<- predict(modelo_OLS_price, newdata = df_train_price)
+OLS_training_mse_price <- mean((pred_OLS_train_price - YTrain_price)^2)
+paste("Error (mse) de entrenamiento:", OLS_training_mse_price)
+
+##MSE: 1093677384172619648
+
+#Base de prueba 
+pred_OLS_test_price <- predict(modelo_OLS_price, newdata = df_test_price)
+OLS_test_mse_price<-mean((pred_OLS_test_price - YTest_price)^2)
+paste("Error (mse) de test:", OLS_test_mse_price)
+
+##MSE: 1092588590698171520
+
+#Regularizacion - Ridge 
+require(glmnet)
+
+#Se crean las matrices de entrenamiento y test 
+x_train_ridge_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type + estrato +CAI +crimen , data =df_train_price)[, -1]
+y_train_ridge_price <- df_train_price$price
+
+x_test_ridge_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC  + property_type + estrato +CAI +crimen , data = df_test_price)[, -1]
+y_test_ridge_price <- df_test_price$price
+#Creacion de modelo
+#Para Ridge el alpha debe ser igual a 0 
+modelo_ridge_price <- glmnet(
+  x           = x_test_ridge_price,
+  y           = y_test_ridge_price,
+  alpha       = 0,
+  nlambda     = 100,
+  standardize = TRUE
+)
+
+#Cambio de coeficientes en funcion de lambda 
+regularizacion_ridge_price <- modelo_ridge_price$beta %>% 
+  as.matrix() %>%
+  t() %>% 
+  as_tibble() %>%
+  mutate(lambda = modelo_ridge_price$lambda)
+
+regularizacion_ridge_price<- regularizacion_ridge_price %>%
+  pivot_longer(
+    cols = !lambda, 
+    names_to = "predictor",
+    values_to = "coeficientes"
+  )
+
+regularizacion_ridge_price %>%
+  ggplot(aes(x = lambda, y = coeficientes, color = predictor)) +
+  geom_line() +
+  scale_x_log10(
+    breaks = trans_breaks("log10", function(x) 10^x),
+    labels = trans_format("log10", math_format(10^.x))
+  ) +
+  labs(title = "Coeficientes del modelo en función de la regularización Precio") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+#MSE en funcion de lambda
+set.seed(0711)
+cv_error_ridge_price <- cv.glmnet(
+  x      = x_train_ridge_price,
+  y      = y_train_ridge_price,
+  alpha  = 0,
+  nfolds = 10,
+  type.measure = "mse",
+  standardize  = TRUE
+)
+
+plot(cv_error_ridge_price)
+
+#Encontramos el lambda que minimiza MSE 
+paste("Mejor valor de lambda encontrado:", cv_error_ridge_price$lambda.min)
+##893315675.83185
+
+#Mayor lambda que no se aleja más de 1 desviacion estandar del minimo 
+paste("Mejor valor de lambda encontrado + 1 desviación estándar:", cv_error_ridge_price$lambda.1se)
+##10034829676.9792
+
+#Estimamos modelo usando mejor valor lambda mas una desviacion estandar 
+modelo_lambda_ods_price <- glmnet(
+  x           = x_train_ridge_price,
+  y           = y_train_ridge_price,
+  alpha       = 0,
+  lambda      = cv_error_ridge_price$lambda.min,
+  standardize = TRUE
+)
+
+#Analisis de coeficientes 
+df_coeficientes_ridge <- coef(modelo_lambda_ods_price) %>%
+  as.matrix() %>%
+  as_tibble(rownames = "predictor") %>%
+  rename(coeficiente = s0)
+
+df_coeficientes_ridge %>%
+  filter(predictor != "(Intercept)") %>%
+  ggplot(aes(x = predictor, y = coeficiente)) +
+  geom_col() +
+  labs(title = "Coeficientes del modelo Ridge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 6, angle = 45))
+#Predicciones Ridge Train 
+pred_ridge_train_price <- predict(modelo_lambda_ods_price, newx = x_train_ridge_price)
+#MSE train 
+ridge_training_mse_price <- mean((pred_ridge_train_price - y_train_ridge_price)^2)
+paste("Error (mse) de entrenamiento:", ridge_training_mse_price)
+##439519364511891584
+
+#Predicciones Ridge Test 
+pred_ridge_test_price <- predict(modelo_lambda_ods_price, newx = x_test_ridge_price)
+#MSE test 
+test_mse_ridge_price <- mean((pred_ridge_test_price - y_test_ridge_price)^2)
+paste("Error (mse) de test:", test_mse_ridge_price)
+
+##437290323122135936
+
+#Regularizacion - Lasso 
+#Matrices de entrenamiento y test
+x_train_lasso_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC  + property_type + estrato +CAI +crimen , data = df_train_price)[, -1]
+y_train_lasso_price <- df_train_price$price
+
+x_test_lasso_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type + estrato +CAI +crimen , data = df_test_price)[, -1]
+y_test_lasso_price <- df_test_price$price
+
+#Creacion del modelo 
+modelo_price_lasso <- glmnet(
+  x           = x_train_lasso_price,
+  y           = y_train_lasso_price,
+  alpha       = 1,
+  nlambda     = 100,
+  standardize = TRUE
+)
+
+#Coeficientes en funcion de lambda 
+regularizacion_lasso_price <- modelo_price_lasso$beta %>% 
+  as.matrix() %>%
+  t() %>% 
+  as_tibble() %>%
+  mutate(lambda = modelo_price_lasso$lambda)
+
+regularizacion_lasso_price <- regularizacion_lasso_price %>%
+  pivot_longer(
+    cols = !lambda, 
+    names_to = "predictor",
+    values_to = "coeficientes"
+  )
+regularizacion_lasso_price %>%
+  ggplot(aes(x = lambda, y = coeficientes, color = predictor)) +
+  geom_line() +
+  scale_x_log10(
+    breaks = trans_breaks("log10", function(x) 10^x),
+    labels = trans_format("log10", math_format(10^.x))
+  ) +
+  labs(title = "Coeficientes del modelo en función de la regularización Precio") +
+  theme_bw() +
+  theme(legend.position = "none")
+#MSE en funcion de lambda 
+set.seed(0711)
+cv_error_lasso_price <- cv.glmnet(
+  x      = x_train_lasso_price,
+  y      = y_train_lasso_price,
+  alpha  = 1,
+  nfolds = 10,
+  type.measure = "mse",
+  standardize  = TRUE
+)
+
+plot(cv_error_lasso_price)
+
+#Mejor lambda determinado 
+paste("Mejor valor de lambda encontrado:", cv_error_lasso_price$lambda.min)
+##9143363.06562591
+
+#Mejor lambda a una desviacion estandar 
+paste("Mejor valor de lambda encontrado + 1 desviación estándar:", cv_error_lasso_price$lambda.1se)
+##196987785.721406
+
+#Estimacion de modelo con lambda optimo 
+modelo_op_lasso_price <- glmnet(
+  x           = x_train_lasso_price,
+  y           = y_train_lasso_price,
+  alpha       = 1,
+  lambda      = cv_error_lasso_price$lambda.min,
+  standardize = TRUE
+)
+
+#Coeficientes 
+df_coef_lasso_price<- coef(modelo_op_lasso_price) %>%
+  as.matrix() %>%
+  as_tibble(rownames = "predictor") %>%
+  rename(coeficiente = s0)
+
+df_coef_lasso_price%>%
+  filter(predictor != "(Intercept)") %>%
+  ggplot(aes(x = predictor, y = coeficiente)) +
+  geom_col() +
+  labs(title = "Coeficientes del modelo Lasso") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 6, angle = 45))
+
+df_coef_lasso_price %>%
+  filter(
+    predictor != "(Intercept)",
+    coeficiente != 0
+  ) 
+
+#Predicciones Ridge Train 
+pred_lasso_train_price <- predict(modelo_op_lasso_price
+                                  , newx = x_train_lasso_price)
+#MSE train 
+lasso_training_mse_price <- mean((pred_lasso_train_price - y_train_lasso_price)^2)
+paste("Error (mse) de entrenamiento:", lasso_training_mse_price)
+##384034251471827008
+
+
+#Predicciones Ridge Test 
+pred_lasso_test_price <- predict(modelo_op_lasso_price, newx = x_test_lasso_price)
+#MSE test 
+lasso_test_mse_price <- mean((pred_lasso_test_price - y_test_lasso_price)^2)
+paste("Error (mse) de test:", lasso_test_mse_price)
+#383258702578772224
+
+#-----------------Resultados preliminares regresion----------------------------------
+#Se puede ver que en los modelos XGboost y Lasso hay un mayor peso de algunas variables.
+#En el caso de XGBoost las variables más importantes son la superficie total, la distnacia a la ciclovia, al CBC y las habitaciones,
+#Con esto en mente se crearán nuevos modelos para ser más precisos.
+
+MSEValores <- c(OLS_test_mse_price, test_mse_ridge_price, lasso_test_mse_price, MSEXG)
+RMSEValores <- sapply(MSEValores, sqrt)
+ModeloNombre <- c("Modelo OLS", "Modelo Ridge", "Modelo Lasso", "Modelo XGBoost")
+
+ResultadosInicialesRegresiobog <- data.frame(ModeloNombre, MSEValores, RMSEValores)
+
+#----------Modelo 5 Elastic Net-------
+el <- train(
+  log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type + estrato +CAI +crimen  , data = dff_trainbog, method = "glmnet",
+  trControl = trainControl("cv", number = 10), preProcess = c("center", "scale"))
+
+plot(el)
+el
+
+YhatEl <- predict(el, dff_testbog)
+MSEtest_el <- mean((YTest_price - YhatEl)^2)
+paste("Error (mse) de test:", MSEtest_el)
+##1092588590716483840
+RMSE_el <- sqrt(MSEtest_el)
+
+ModeloElStats <- c("Elastic Net", MSEtest_el, RMSE_el)
+
+ResultadosInicialesRegresiobog <- rbind(ResultadosInicialesRegresio, ModeloElStats)
+
+
+#------Modelo Ridge 6-----------
+
+set.seed(1948)
+
+lambda = 10^seq(-2, 3, length = 10)
+ridge_caret<- train(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type + estrato +CAI +crimen ,
+                    data = dff_trainbog, 
+                    method = "glmnet",
+                    trControl = trainControl("cv", number = 10),
+                    preProcess = c("center","scale"),
+                    tuneGrid = expand.grid(alpha = 0,
+                                           lambda = lambda))
+
+plot(ridge_caret)
+ridge_caret
+summary(ridge_caret)
+
+Yridge_caret <- predict(ridge_caret, dff_testbog)
+MSEtestridge_caret <- mean((YTest_price - Yridge_caret)^2)
+RMSE_rc <- sqrt(MSEtestridge_caret)
+ridge_caretStats <- c("Modelo RidgeEducacionYActividad", MSEtestridge_caret, RMSE_rc)
+
+ResultadosInicialesRegresiobog <- rbind(ResultadosInicialesRegresio, ridge_caretStats)
+write.csv(ResultadosInicialesRegresiobog,"ResultadosDeModelosbog.csv", row.names = FALSE)
+
+
+##---------------------Modelos Medellín
+
+require(caret)
+require("gtsummary")
+
+df_trainmed <- subset(df_sf, l3 == "Medellín")
+
+df_trainmed <- subset(df_trainmed, test == 0)
+df_trainmed <- dplyr::select(df_trainmed,-title, -property_id, -description, -new_surface, -contaminacion, -start_date, -end_date, -created_on, -geometry)
+set.seed(1948)
+df_train <-  st_drop_geometry(df_trainmed)
+index <-  round(nrow(df_trainmed)*0.3,digits=0)
+#Muestra aleatorizada del  dataset y mantener el número de observaciones del indice
+test.indices <- sample(1:nrow(df_trainmed), index)
+# set de entrenamiento
+dff_trainmed<-df_trainmed[-test.indices,] 
+#30% set de testeo
+dff_testmed<-df_trainmed[test.indices,] 
+#Seleccionar el set de entrenamiento en variables independientes y dependientes
+YTrain <- dff_trainmed$price
+XTrain <- dff_trainmed %>% dplyr::select(-price)
+#Seleccionar el set de testeo en variables independientes y dependientes
+YTest <- dff_testmed$price
+XTest <- dff_testmed %>% dplyr::select(- price)
+
+
+#--------Modelo XGboost---------------------
+#Se crea la base a utilizar
+YTestReg <- dff_testmed$price
+dff_trainReg <- dff_trainmed
+YTrainReg <- dff_trainReg$price
+XTrainReg <- dff_trainReg %>% dplyr::select(-price)
+
+set.seed(1948)
+trControl1 <- trainControl(method='repeatedcv', 
+                           number=5, 
+                           repeats=1,
+                           allowParallel = TRUE)
+
+
+grid_default <- expand.grid(nrounds = c(250,500),
+                            max_depth = c(4,5,6),
+                            eta = c(0.05),
+                            gamma = c(0.01),
+                            min_child_weight = c(10, 25, 50),
+                            colsample_bytree = c(0.7),
+                            subsample = c(0.6))
+
+ModeloXGBoost <- train(
+  price ~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + l3 + property_type ,
+  data = dff_trainReg,
+  method = "xgbTree",
+  trControl = trControl1,
+  tuneGrid = grid_default, 
+  na.action=na.exclude)
+
+
+plot(ModeloXGBoost)
+ModeloXGBoost
+varImp(ModeloXGBoost,scale=TRUE)
+
+
+YhatXG <-predict(ModeloXGBoost, XTest)
+MSEXG <- sum((YTestReg-YhatXG)^2)/length(YTestReg)
+RMSEXG <- sqrt(MSEXG)
+
+XTestXG <- cbind(XTest, YhatXG)
+
+
+
+#---------------Lasso y Ridge-----------------------------------------------------
+
+#Seleccionamos la base y la modificamos. La variable dependiente sera price
+#Se eliminan las variables que miden lo mismo 
+
+df_train_price<- dplyr::select(dff_train,-l3, -estrato, -test, -CAI, -centrocomercial)
+df_test_price <- dff_testmed
+
+
+#Se crean las variables de entrenamiento 
+YTrain_price <- df_train_price$price
+XTrain_price <- dplyr::select(df_train_price,-price)
+
+#Se crean las variables de test 
+YTest_price<-df_test_price$price
+XTest_price<-dplyr::select(df_test_price,-price)
+
+#Estimacion modelo OLS 
+modelo_OLS_price<-lm(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type , data = df_train_price)
+summary(modelo_OLS_price) #Adjuted R-squared 0.35
+
+##CAI, Centro comercial , test y bedrooms están fuertemente correlacionadas con otras variables
+#Coeficientes del modelo OLS 
+mt_coeficientes_price <- modelo_OLS_price$coefficients %>%
+  enframe(name = "predictor", value = "coeficiente")
+
+mt_coeficientes_price %>%
+  filter(predictor != "(Intercept)") %>%
+  ggplot(aes(x = predictor, y = coeficiente)) +
+  geom_col() +
+  labs(title = "Coeficientes del modelo OLS Precio") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 5, angle = 45))
+#Predicciones y MSE 
+#Base de entrenamiento 
+
+pred_OLS_train_price<- predict(modelo_OLS_price, newdata = df_train_price)
+OLS_training_mse_price <- mean((pred_OLS_train_price - YTrain_price)^2)
+paste("Error (mse) de entrenamiento:", OLS_training_mse_price)
+
+##MSE: 313534998627554560
+
+#Base de prueba 
+pred_OLS_test_price <- predict(modelo_OLS_price, newdata = df_test_price)
+OLS_test_mse_price<-mean((pred_OLS_test_price - YTest_price)^2)
+paste("Error (mse) de test:", OLS_test_mse_price)
+
+##MSE: 331708210739008192
+
+#Regularizacion - Ridge 
+require(glmnet)
+
+#Se crean las matrices de entrenamiento y test 
+x_train_ridge_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type, data =df_train_price)[, -1]
+y_train_ridge_price <- df_train_price$price
+
+x_test_ridge_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type, data = df_test_price)[, -1]
+y_test_ridge_price <- df_test_price$price
+#Creacion de modelo
+#Para Ridge el alpha debe ser igual a 0 
+modelo_ridge_price <- glmnet(
+  x           = x_test_ridge_price,
+  y           = y_test_ridge_price,
+  alpha       = 0,
+  nlambda     = 100,
+  standardize = TRUE
+)
+
+#Cambio de coeficientes en funcion de lambda 
+regularizacion_ridge_price <- modelo_ridge_price$beta %>% 
+  as.matrix() %>%
+  t() %>% 
+  as_tibble() %>%
+  mutate(lambda = modelo_ridge_price$lambda)
+
+regularizacion_ridge_price<- regularizacion_ridge_price %>%
+  pivot_longer(
+    cols = !lambda, 
+    names_to = "predictor",
+    values_to = "coeficientes"
+  )
+
+regularizacion_ridge_price %>%
+  ggplot(aes(x = lambda, y = coeficientes, color = predictor)) +
+  geom_line() +
+  scale_x_log10(
+    breaks = trans_breaks("log10", function(x) 10^x),
+    labels = trans_format("log10", math_format(10^.x))
+  ) +
+  labs(title = "Coeficientes del modelo en función de la regularización Precio") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+#MSE en funcion de lambda
+set.seed(0711)
+cv_error_ridge_price <- cv.glmnet(
+  x      = x_train_ridge_price,
+  y      = y_train_ridge_price,
+  alpha  = 0,
+  nfolds = 10,
+  type.measure = "mse",
+  standardize  = TRUE
+)
+
+plot(cv_error_ridge_price)
+
+#Encontramos el lambda que minimiza MSE 
+paste("Mejor valor de lambda encontrado:", cv_error_ridge_price$lambda.min)
+##2210005853.35833
+
+#Mayor lambda que no se aleja más de 1 desviacion estandar del minimo 
+paste("Mejor valor de lambda encontrado + 1 desviación estándar:", cv_error_ridge_price$lambda.1se)
+##145403627761.215
+
+#Estimamos modelo usando mejor valor lambda mas una desviacion estandar 
+modelo_lambda_ods_price <- glmnet(
+  x           = x_train_ridge_price,
+  y           = y_train_ridge_price,
+  alpha       = 0,
+  lambda      = cv_error_ridge_price$lambda.min,
+  standardize = TRUE
+)
+
+#Analisis de coeficientes 
+df_coeficientes_ridge <- coef(modelo_lambda_ods_price) %>%
+  as.matrix() %>%
+  as_tibble(rownames = "predictor") %>%
+  rename(coeficiente = s0)
+
+df_coeficientes_ridge %>%
+  filter(predictor != "(Intercept)") %>%
+  ggplot(aes(x = predictor, y = coeficiente)) +
+  geom_col() +
+  labs(title = "Coeficientes del modelo Ridge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 6, angle = 45))
+#Predicciones Ridge Train 
+pred_ridge_train_price <- predict(modelo_lambda_ods_price, newx = x_train_ridge_price)
+#MSE train 
+ridge_training_mse_price <- mean((pred_ridge_train_price - y_train_ridge_price)^2)
+paste("Error (mse) de entrenamiento:", ridge_training_mse_price)
+##140645985131188720
+
+#Predicciones Ridge Test 
+pred_ridge_test_price <- predict(modelo_lambda_ods_price, newx = x_test_ridge_price)
+#MSE test 
+test_mse_ridge_price <- mean((pred_ridge_test_price - y_test_ridge_price)^2)
+paste("Error (mse) de test:", test_mse_ridge_price)
+
+##155713166860046624
+
+#Regularizacion - Lasso 
+#Matrices de entrenamiento y test
+x_train_lasso_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type, data = df_train_price)[, -1]
+y_train_lasso_price <- df_train_price$price
+
+x_test_lasso_price <- model.matrix(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type, data = df_test_price)[, -1]
+y_test_lasso_price <- df_test_price$price
+
+#Creacion del modelo 
+modelo_price_lasso <- glmnet(
+  x           = x_train_lasso_price,
+  y           = y_train_lasso_price,
+  alpha       = 1,
+  nlambda     = 100,
+  standardize = TRUE
+)
+
+#Coeficientes en funcion de lambda 
+regularizacion_lasso_price <- modelo_price_lasso$beta %>% 
+  as.matrix() %>%
+  t() %>% 
+  as_tibble() %>%
+  mutate(lambda = modelo_price_lasso$lambda)
+
+regularizacion_lasso_price <- regularizacion_lasso_price %>%
+  pivot_longer(
+    cols = !lambda, 
+    names_to = "predictor",
+    values_to = "coeficientes"
+  )
+regularizacion_lasso_price %>%
+  ggplot(aes(x = lambda, y = coeficientes, color = predictor)) +
+  geom_line() +
+  scale_x_log10(
+    breaks = trans_breaks("log10", function(x) 10^x),
+    labels = trans_format("log10", math_format(10^.x))
+  ) +
+  labs(title = "Coeficientes del modelo en función de la regularización Precio") +
+  theme_bw() +
+  theme(legend.position = "none")
+#MSE en funcion de lambda 
+set.seed(0711)
+cv_error_lasso_price <- cv.glmnet(
+  x      = x_train_lasso_price,
+  y      = y_train_lasso_price,
+  alpha  = 1,
+  nfolds = 10,
+  type.measure = "mse",
+  standardize  = TRUE
+)
+
+plot(cv_error_lasso_price)
+
+#Mejor lambda determinado 
+paste("Mejor valor de lambda encontrado:", cv_error_lasso_price$lambda.min)
+##109992512.094763
+
+#Mejor lambda a una desviacion estandar 
+paste("Mejor valor de lambda encontrado + 1 desviación estándar:", cv_error_lasso_price$lambda.1se)
+##132486370.220099
+
+#Estimacion de modelo con lambda optimo 
+modelo_op_lasso_price <- glmnet(
+  x           = x_train_lasso_price,
+  y           = y_train_lasso_price,
+  alpha       = 1,
+  lambda      = cv_error_lasso_price$lambda.min,
+  standardize = TRUE
+)
+
+#Coeficientes 
+df_coef_lasso_price<- coef(modelo_op_lasso_price) %>%
+  as.matrix() %>%
+  as_tibble(rownames = "predictor") %>%
+  rename(coeficiente = s0)
+
+df_coef_lasso_price%>%
+  filter(predictor != "(Intercept)") %>%
+  ggplot(aes(x = predictor, y = coeficiente)) +
+  geom_col() +
+  labs(title = "Coeficientes del modelo Lasso") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 6, angle = 45))
+
+df_coef_lasso_price %>%
+  filter(
+    predictor != "(Intercept)",
+    coeficiente != 0
+  ) 
+
+#Predicciones Ridge Train 
+pred_lasso_train_price <- predict(modelo_op_lasso_price
+                                  , newx = x_train_lasso_price)
+#MSE train 
+lasso_training_mse_price <- mean((pred_lasso_train_price - y_train_lasso_price)^2)
+paste("Error (mse) de entrenamiento:", lasso_training_mse_price)
+##140565778402211184"
+
+
+#Predicciones Ridge Test 
+pred_lasso_test_price <- predict(modelo_op_lasso_price, newx = x_test_lasso_price)
+#MSE test 
+lasso_test_mse_price <- mean((pred_lasso_test_price - y_test_lasso_price)^2)
+paste("Error (mse) de test:", lasso_test_mse_price)
+#155895692742852064
+
+#-----------------Resultados preliminares regresion----------------------------------
+#Se puede ver que en los modelos XGboost y Lasso hay un mayor peso de algunas variables.
+#En el caso de XGBoost las variables más importantes son la superficie total, la distnacia a la ciclovia, al CBC y las habitaciones,
+#Con esto en mente se crearán nuevos modelos para ser más precisos.
+
+MSEValores <- c(OLS_test_mse_price, test_mse_ridge_price, lasso_test_mse_price, MSEXG)
+RMSEValores <- sapply(MSEValores, sqrt)
+ModeloNombre <- c("Modelo OLS", "Modelo Ridge", "Modelo Lasso", "Modelo XGBoost")
+
+ResultadosInicialesRegresiomed <- data.frame(ModeloNombre, MSEValores, RMSEValores)
+
+#----------Modelo 5 Elastic Net-------
+el <- train(
+  log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type , data = dff_trainmed, method = "glmnet",
+  trControl = trainControl("cv", number = 10), preProcess = c("center", "scale"))
+
+plot(el)
+el
+
+YhatEl <- predict(el, dff_testmed)
+MSEtest_el <- mean((YTest_price - YhatEl)^2)
+paste("Error (mse) de test:", MSEtest_el)
+## 331708210763794880
+RMSE_el <- sqrt(MSEtest_el)
+
+ModeloElStats <- c("Elastic Net", MSEtest_el, RMSE_el)
+
+ResultadosInicialesRegresiomed <- rbind(ResultadosInicialesRegresio, ModeloElStats)
+
+
+#------Modelo Ridge 6-----------
+
+set.seed(1948)
+
+lambda = 10^seq(-2, 3, length = 10)
+ridge_caret<- train(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type,
+                    data = dff_trainmed, 
+                    method = "glmnet",
+                    trControl = trainControl("cv", number = 10),
+                    preProcess = c("center","scale"),
+                    tuneGrid = expand.grid(alpha = 0,
+                                           lambda = lambda))
+
+plot(ridge_caret)
+ridge_caret
+summary(ridge_caret)
+
+Yridge_caret <- predict(ridge_caret, dff_testmed)
+MSEtestridge_caret <- mean((YTest_price - Yridge_caret)^2)
+RMSE_rc <- sqrt(MSEtestridge_caret)
+ridge_caretStats <- c("Modelo RidgeEducacionYActividad", MSEtestridge_caret, RMSE_rc)
+
+ResultadosInicialesRegresiomed <- rbind(ResultadosInicialesRegresio, ridge_caretStats)
+write.csv(ResultadosInicialesRegresiomed,"ResultadosDeModelosmed.csv", row.names = FALSE)
 
 
 ####OJO SI EL PRECIO ESTÁ MENOR EN 40 MILLONES O 10000 USD TENDREMOS PENALIZACIÓN #####
-
-
