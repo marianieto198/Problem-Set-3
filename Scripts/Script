@@ -1702,7 +1702,7 @@ grid_default <- expand.grid(nrounds = c(250,500),
                             subsample = c(0.6))
 
 ModeloXGBoost <- train(
-  price ~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + l3 + property_type ,
+  log(price) ~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + l3 + property_type ,
   data = dff_trainReg,
   method = "xgbTree",
   trControl = trControl1,
