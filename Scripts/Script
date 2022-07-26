@@ -393,7 +393,7 @@ df_sf = df_sf %>%
 
 ##=== 2. vecinos espaciales para complementar observaciones ===##
 
-#--------------------Manzanas Bogotá---------
+#####-----------Imputación superficie con manzanas de Bogotá
 # load data
 mnzbog = st_read("MANZ.shp")
 colnames(mnz)
@@ -424,6 +424,47 @@ df_sf = df_sf %>%
 table(is.na(df_sf$surface_total))
 
 ##Ahora solo hay 3083 NAs de superficie total
+
+####-------------Ahora diligenciamos información de estrato de Bogotá
+
+estratobog = st_read("ManzanaEstratificacion.shp")
+colnames(estratobog)
+
+leaflet() %>% addTiles() %>% addPolygons(data=mnzbog , color="red") %>% addCircles(data=df_sf)
+
+## spatial join
+estratobog <- st_transform(estratobog, st_crs(df_sf))
+estratobog<-st_transform(estratobog, 4686)
+df_sf_estrato = st_join(x = df_sf ,y = estratobog)
+
+
+colnames(df_sf_mnz)
+
+## average block
+df_sf_estrato = df_sf_estrato %>%
+  group_by(CODIGO_MAN) %>%
+  mutate(estrato2=median(ESTRATO,na.rm=T))
+
+table(is.na(df_sf_estrato$estrato2))
+
+df_sf = df_sf %>% 
+  mutate(estrato = ifelse(is.na(estrato)==T,
+                          as.numeric(df_sf_estrato$estrato2),
+                          estrato))
+table(is.na(df_sf$estrato))
+
+
+regexp <- "[[:digit:]]"
+
+# process string
+df_sf = df_sf %>% 
+  mutate(estrato = ifelse(is.na(estrato)==T,
+                           str_extract(df_sf$estrato, regexp), estrato))
+
+table(is.na(df_sf$estrato))
+##Uniendo los datos con los extraídos de la descripción ahora se tienen 38211 NAs
+
+
 
 ####-------------Ahora diligenciamos información de estrato de Bogotá
 
@@ -491,6 +532,39 @@ df_sf = df_sf %>%
 table(is.na(df_sf$surface_total))
 
 ##Ahora ya no tenemos NAs en la variable de superficie total
+
+
+##--------------------Ahora Baños
+df_sf_mnz1 = st_join(x = df_sf_bog,y = mnzbog)
+
+df_sf_mnz1 = df_sf_mnz1 %>%
+  group_by(MANCODIGO) %>%
+  mutate(new_banos=median(bathrooms,na.rm=T))
+
+table(is.na(df_sf_mnz1$bathrooms))
+df_sf = df_sf %>% 
+  mutate(bathrooms = ifelse(is.na(bathrooms)==T,
+                                as.numeric(df_sf_mnz1$new_banos),
+                                NA))
+table(is.na(df_sf$bathrooms))
+
+##Medellín
+mnzmed<-st_transform(mnzmed, 4686)
+
+df_sf_mnzmed = st_join(x = df_sf_med,y = mnzmed)
+
+colnames(df_sf_mnzmed)
+
+## average block
+df_sf_mnzmed = df_sf_mnzmed %>%
+  group_by(COBAMA) %>%
+  mutate(banos=median(bathrooms,na.rm=T))
+
+df_sf = df_sf %>% 
+  mutate(bathrooms = ifelse(is.na(bathrooms)==T,  
+                            as.numeric(df_sf_mnzmed$banos), bathrooms))
+
+####125 Nas
 
 #------------------------Utilizar bases externas para crear otras variables
 
