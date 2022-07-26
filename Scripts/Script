@@ -1359,9 +1359,8 @@ XTest_price<-dplyr::select(df_test_price,-price)
 
 #Estimacion modelo OLS 
 modelo_OLS_price<-lm(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type + estrato +CAI +crimen  , data = df_train_price)
-summary(modelo_OLS_price) #Adjuted R-squared 0.35
+summary(modelo_OLS_price) #Adjuted R-squared 0.43
 
-##CAI, Centro comercial , test y bedrooms están fuertemente correlacionadas con otras variables
 #Coeficientes del modelo OLS 
 mt_coeficientes_price <- modelo_OLS_price$coefficients %>%
   enframe(name = "predictor", value = "coeficiente")
@@ -1599,7 +1598,7 @@ paste("Error (mse) de test:", lasso_test_mse_price)
 
 #-----------------Resultados preliminares regresion----------------------------------
 #Se puede ver que en los modelos XGboost y Lasso hay un mayor peso de algunas variables.
-#En el caso de XGBoost las variables más importantes son la superficie total, la distnacia a la ciclovia, al CBC y las habitaciones,
+#En el caso de XGBoost las variables más importantes son la superficie total, el estarto, la distancia a ciclovias, al CBC y a bus, además de las habitaciones
 #Con esto en mente se crearán nuevos modelos para ser más precisos.
 
 MSEValores <- c(OLS_test_mse_price, test_mse_ridge_price, lasso_test_mse_price, MSEXG)
@@ -1624,7 +1623,7 @@ RMSE_el <- sqrt(MSEtest_el)
 
 ModeloElStats <- c("Elastic Net", MSEtest_el, RMSE_el)
 
-ResultadosInicialesRegresiobog <- rbind(ResultadosInicialesRegresio, ModeloElStats)
+ResultadosInicialesRegresiobog <- rbind(ResultadosInicialesRegresiobog, ModeloElStats)
 
 
 #------Modelo Ridge 6-----------
@@ -1649,7 +1648,7 @@ MSEtestridge_caret <- mean((YTest_price - Yridge_caret)^2)
 RMSE_rc <- sqrt(MSEtestridge_caret)
 ridge_caretStats <- c("Modelo RidgeEducacionYActividad", MSEtestridge_caret, RMSE_rc)
 
-ResultadosInicialesRegresiobog <- rbind(ResultadosInicialesRegresio, ridge_caretStats)
+ResultadosInicialesRegresiobog <- rbind(ResultadosInicialesRegresiobog, ridge_caretStats)
 write.csv(ResultadosInicialesRegresiobog,"ResultadosDeModelosbog.csv", row.names = FALSE)
 
 
@@ -1728,7 +1727,7 @@ XTestXG <- cbind(XTest, YhatXG)
 #Seleccionamos la base y la modificamos. La variable dependiente sera price
 #Se eliminan las variables que miden lo mismo 
 
-df_train_price<- dplyr::select(dff_train,-l3, -estrato, -test, -CAI, -centrocomercial)
+df_train_price<- dplyr::select(dff_trainmed,-l3, -estrato, -test, -CAI, -centrocomercial)
 df_test_price <- dff_testmed
 
 
@@ -1742,7 +1741,7 @@ XTest_price<-dplyr::select(df_test_price,-price)
 
 #Estimacion modelo OLS 
 modelo_OLS_price<-lm(log(price)~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + property_type , data = df_train_price)
-summary(modelo_OLS_price) #Adjuted R-squared 0.35
+summary(modelo_OLS_price) #Adjuted R-squared 0.22
 
 ##CAI, Centro comercial , test y bedrooms están fuertemente correlacionadas con otras variables
 #Coeficientes del modelo OLS 
@@ -1982,7 +1981,7 @@ paste("Error (mse) de test:", lasso_test_mse_price)
 
 #-----------------Resultados preliminares regresion----------------------------------
 #Se puede ver que en los modelos XGboost y Lasso hay un mayor peso de algunas variables.
-#En el caso de XGBoost las variables más importantes son la superficie total, la distnacia a la ciclovia, al CBC y las habitaciones,
+#En el caso de XGBoost las variables más importantes son la superficie total, la distancia a los buses, bares y al CBC y las habitaciones
 #Con esto en mente se crearán nuevos modelos para ser más precisos.
 
 MSEValores <- c(OLS_test_mse_price, test_mse_ridge_price, lasso_test_mse_price, MSEXG)
@@ -2007,7 +2006,7 @@ RMSE_el <- sqrt(MSEtest_el)
 
 ModeloElStats <- c("Elastic Net", MSEtest_el, RMSE_el)
 
-ResultadosInicialesRegresiomed <- rbind(ResultadosInicialesRegresio, ModeloElStats)
+ResultadosInicialesRegresiomed <- rbind(ResultadosInicialesRegresiomed, ModeloElStats)
 
 
 #------Modelo Ridge 6-----------
@@ -2032,7 +2031,7 @@ MSEtestridge_caret <- mean((YTest_price - Yridge_caret)^2)
 RMSE_rc <- sqrt(MSEtestridge_caret)
 ridge_caretStats <- c("Modelo RidgeEducacionYActividad", MSEtestridge_caret, RMSE_rc)
 
-ResultadosInicialesRegresiomed <- rbind(ResultadosInicialesRegresio, ridge_caretStats)
+ResultadosInicialesRegresiomed <- rbind(ResultadosInicialesRegresiomed, ridge_caretStats)
 write.csv(ResultadosInicialesRegresiomed,"ResultadosDeModelosmed.csv", row.names = FALSE)
 
 
