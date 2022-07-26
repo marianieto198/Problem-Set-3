@@ -852,29 +852,24 @@ grid_default <- expand.grid(nrounds = c(250,500),
                             subsample = c(0.6))
 
 ModeloXGBoost <- train(
-  price ~ . ,
+  price ~ bedrooms + surface_total + dist_bar + dist_bus + ciclovia + parques + colegios + distancia_CBC + l3 + property_type,
   data = dff_trainReg,
   method = "xgbTree",
   trControl = trControl1,
-  tuneGrid = grid_default, na.action=na.exclude)
+  tuneGrid = grid_default, 
+  na.action=na.exclude)
 
 
 plot(ModeloXGBoost)
 ModeloXGBoost
 varImp(ModeloXGBoost,scale=TRUE)
 
-levels(droplevels(XTest$parqueaderos))
 
 YhatXG <-predict(ModeloXGBoost, XTest)
 MSEXG <- sum((YTestReg-YhatXG)^2)/length(YTestReg)
 RMSEXG <- sqrt(MSEXG)
 
-MSEXGValor = 847419757645118080
-RMSEGValor = 920554049.27
-
 XTestXG <- cbind(XTest, YhatXG)
-XTestXG$PricePredict <- ifelse(XTestXG$YhatXG > XTestXG$Npersug*XTestXG$Lp, 0, 1)
-confusionMatrix(table(YTest, XTestXG$PricePredict))
 
 
 #---------------Lasso y Ridge-----------------------------------------------------
