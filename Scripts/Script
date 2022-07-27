@@ -831,7 +831,135 @@ dist_CBCmed = st_distance(x=df_sf_med , y=CBC1med)
 df_sf = df_sf %>% 
   mutate(distancia_CBC= ifelse(l3=="Bogotá D.C", apply(dist_CBCbog , 1 , min),  apply(dist_CBCmed , 1 , min))) 
 
+#Analisis de la distribucion de la variable de interés (Precio)
+#Se aplican diferentes observaciones y se identifica como cambia el skewness
+# Encontrar lambda óptimo
+# Construimos el vector de los ingresos y eliminamos los NAs 
+x <- df_sf_$price[!is.na(df_sf_$price)]
+sk_x <- skewness(x)
+print(paste("El valor de skewness para los ingresos totales es", round(sk_x, 2)))
 
+# Vamos a aplicar diferentes transformaciones y a visualizar como cambia el skewness
+# Encontrar lambda óptimo
+lambda <- boxcox(x, objective.name = "Log-Likelihood", 
+                 optimize = TRUE)$lambda
+box_cox_x <- boxcoxTransform(x, lambda)
+
+price_t <- data.frame("Ingresos totales" = x,
+                      "Logaritmo" = log(x),
+                      "Raiz cuadrada" = sqrt(x),
+                      "Inversa" = 1/x,
+                      "Box-Cox" = box_cox_x)
+
+
+sk_x<-skewness(df_sf_$price, na.rm=TRUE)
+p1 <- ggplot(data = df_sf_) +
+  geom_histogram(aes(x = price, 
+                     fill = "price"), 
+                 alpha = 0.5, fill = "gray", bins = 30) +
+  geom_text(aes(x = Inf, y = Inf, hjust = 1, 
+                vjust = 1, 
+                label = paste("Skewness", round(sk_x, 2)))) +
+  theme_classic() +
+  labs(x = "Precio", y = "Cantidad") +
+  scale_x_continuous(labels = scales::dollar)
+
+sk_x2 <- skewness(price_t$Logaritmo)
+p2 <- ggplot(price_t) +
+  geom_histogram(aes(x = Logaritmo, 
+                     fill = "Logaritmo"), 
+                 alpha = 0.5, fill = "blue", bins = 30) +
+  geom_text(aes(x = Inf, y = Inf, hjust = 1, 
+                vjust = 1, 
+                label = paste("Skewness", round(sk_x2, 2)))) +
+  theme_classic() +
+  labs(x = "Log(Precio)", y = "Cantidad") 
+
+sk_x3 <- skewness(price_t$Raiz.cuadrada)
+p3 <- ggplot(price_t) +
+  geom_histogram(aes(x = Raiz.cuadrada, 
+                     fill = "Raíz cuadrada"), 
+                 alpha = 0.5, fill = "red", bins = 30) +
+  geom_text(aes(x = Inf, y = Inf, hjust = 1, 
+                vjust = 1, 
+                label = paste("Skewness", round(sk_x3, 2)))) +
+  theme_classic() +
+  labs(x = "Raiz cuadrada de Precio", y = "Cantidad") 
+
+sk_x4 <- skewness(price_t$Inversa)
+p4 <- ggplot(price_t) +
+  geom_histogram(aes(x = Inversa, 
+                     fill = "Inversa"), 
+                 alpha = 0.5, fill = "green", bins = 30) +
+  geom_text(aes(x = Inf, y = Inf, hjust = 1, 
+                vjust = 1, 
+                label = paste("Skewness", round(sk_x4, 2)))) +
+  theme_classic() +
+  labs(x = "1/(Precio)", y = "Cantidad")
+
+sk_x5 <- skewness(price_t$Box.Cox)
+p5 <- ggplot(price_t) +
+  geom_histogram(aes(x = Box.Cox, 
+                     fill = "Box-Cox"), 
+                 alpha = 0.5, fill = "purple", bins = 30) +
+  geom_text(aes(x = Inf, y = Inf, hjust = 1, 
+                vjust = 1, 
+                label = paste("Skewness", round(sk_x5, 2)))) +
+  theme_classic() +
+  labs(x = "Transformacion Box-Cox de Precio", 
+       y = "Cantidad")
+
+ggarrange(p1, p2, p3, p4, p5, nrow = 3, ncol = 2)
+
+#Identificación de valores atípicos 
+
+#Superficie Total 
+d1 <- ggplot(df_sf_, aes(y =surface_total)) +
+  geom_boxplot(fill = "darkslategray3", alpha = 0.5) +
+  theme_classic() +
+  labs(y = "Superficie total") +
+  scale_y_continuous()
+#Parqueaderos 
+d2 <- ggplot(df_sf_, aes(y = parqueaderos)) +
+  geom_boxplot(fill = "darkslategray3", alpha = 0.5) +
+  theme_classic() +
+  labs(y = "Parqueaderos") +
+  scale_y_discrete( ) 
+#Distancia CBC
+d3 <- ggplot(df_sf_, aes(y = distancia_CBC)) +
+  geom_boxplot(fill = "darkslategray3", alpha = 0.5) +
+  theme_classic() +
+  labs(y = "Parqueaderos") +
+  scale_y_continuous()
+# Distancia Bar 
+d4 <-ggplot(df_sf_, aes(y = dist_bar)) +
+  geom_boxplot(fill = "darkslategray3", alpha = 0.5) +
+  theme_classic() +
+  labs(y = "Parqueaderos") +
+  scale_y_continuous()
+# Hurto a personas Bogotá 
+d5 <-ggplot(df_sf_, aes(y = crimen)) +
+  geom_boxplot(fill = "darkslategray3", alpha = 0.5) +
+  theme_classic() +
+  labs(y = "Crimen") +
+  scale_y_discrete()
+
+# Colegios 
+d6 <- ggplot(df_sf_, aes(y = colegios)) +
+  geom_boxplot(fill = "darkslategray3", alpha = 0.5) +
+  theme_classic() +
+  labs(y = "Colegios") +
+  scale_y_continuous()
+#Tabla de estadísticas descriptivas 
+
+vartable <- st(df_sf_, vars = c('bedrooms','bathrooms', 'surface_total', 'colegios', 'crimen', 'distancia_CBC', 'dist_bar'), labels = c("Cuartos", "Baños", "Superficie Total", "Colegios", "Crimen", "Distancia Business Center", "Distancia Bares"))
+
+sumar1 <- describe(df_sf_[ ,  c('bedrooms','bathrooms', 'surface_total', 'colegios', 'crimen', 'distancia_CBC', 'dist_bar')],fast=TRUE)
+
+stargazer(df_sf_[ c('bedrooms','bathrooms', 'surface_total', 'colegios', 'crimen', 'distancia_CBC', 'dist_bar')], type = "text", 
+          digits=2, median = TRUE, iqr = TRUE,
+          title="Descriptive statistics",
+          covariate.labels=c("Cuartos", "Baños", "Superficie Total", "Colegios", "Crimen", "Distancia Business Center", "Distancia Bares"),out="table1.txt")
 
 #Correlaciones
 MCor <- df %>% dplyr::select(rooms, bedrooms, bathrooms, surface_total,
